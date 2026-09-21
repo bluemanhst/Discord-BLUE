@@ -1,0 +1,38 @@
+{
+    "language": "vietnamese",
+    "current_theme": "Dragon Ball (Mặc định)",
+    "tokens": [
+        ""
+    ],
+    "channel_ids": [
+        ""
+    ],
+    "cooldown_min": 60,
+    "cooldown_max": 90,
+    "custom_message": [
+        "Hello"
+    ],
+    "features": {
+        "auto_delete": false,
+        "delete_delay_ms": 0,
+        "auto_typing": false,
+        "typing_min_sec": 2,
+        "typing_max_sec": 5,
+        "auto_break": false,
+        "break_after_min": 15,
+        "break_after_max": 25,
+        "break_duration_min": 10,
+        "break_duration_max": 30,
+        "auto_stop_on_ban": true,
+        "schedule": false,
+        "schedule_start": "09:00",
+        "schedule_end": "17:00",
+        "smart_templates": false,
+        "sound_enabled": false,
+        "sound_error": true,
+        "sound_stop": true,
+        "sound_success": true,
+        "tray_enabled": false,
+        "startup_enabled": false
+    }
+}

@@ -1,0 +1,55 @@
+# Discord Bot Token - KHÔNG COMMIT LÊN GITHUB
+config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+Build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Config files with secrets
+config.json
+config.json.backup
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+*.exe
+_internal/
+build/
+dist/
+
+# Devin IDE
+.devin/
+
+# Cline / Cora IDE
+.cora/
