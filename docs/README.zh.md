@@ -152,4 +152,4 @@ python main.pyw
 
 * **作者**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
-* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhst)
+* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhstv4seo)
