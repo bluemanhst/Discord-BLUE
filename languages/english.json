@@ -27,7 +27,15 @@
     "validator_checking": "⏳ Checking {0} token(s)...",
     "validator_progress": "⏳ Checking... {0}/{1}",
     "validator_done": "✅ Finished checking {0} token(s)",
-    "validator_close": "Close"
+    "validator_close": "Close",
+    "btn_validate_channels": "🔍 CHECK CHANNELS",
+    "channel_validator_title": "Channel ID Check",
+    "channel_validator_result_title": "CHANNEL ID CHECK RESULTS",
+    "channel_validator_checking": "⏳ Checking {0} channel(s)...",
+    "channel_validator_progress": "⏳ Checking... {0}/{1}",
+    "channel_validator_done": "✅ Finished checking {0} channel(s)",
+    "channel_validator_no_channels": "No Channel IDs to check!",
+    "channel_validator_no_tokens": "At least 1 Token is required to check Channel IDs!"
   },
   "features_page": {
     "auto_delete": "🗑️  Auto Delete Messages (Delete immediately after sending)",

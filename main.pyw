@@ -69,7 +69,7 @@ from utils.helpers import is_in_schedule, process_smart_template
 from discord.bot import run_single_account
 from discord.dashboard import dashboard
 from ui.navigation import create_navigation_bar
-from ui.main_page import create_main_page, validate_tokens_widget
+from ui.main_page import create_main_page, validate_tokens_widget, validate_channels_widget
 from ui.features_page import create_features_page
 from ui.config_page import create_config_page
 from ui.theme_page import create_theme_page
@@ -356,10 +356,11 @@ nav_bar = create_navigation_bar(root, show_main_page, show_features_page,
 # ===== TẠO CÁC TRANG =====
 # Trang chính
 (frame_main_page, frame_content, txt_tokens, txt_channels, txt_messages, 
- entry_min, entry_max, lbl_status, log_area, btn_start, btn_stop, btn_validate) = create_main_page(root)
+ entry_min, entry_max, lbl_status, log_area, btn_start, btn_stop, btn_validate, btn_validate_channels) = create_main_page(root)
 
 # Gán command cho nút
 btn_validate.config(command=lambda: validate_tokens_widget(txt_tokens))
+btn_validate_channels.config(command=lambda: validate_channels_widget(txt_channels, txt_tokens))
 btn_start.config(command=start_trigger)
 btn_stop.config(command=stop_trigger)
 

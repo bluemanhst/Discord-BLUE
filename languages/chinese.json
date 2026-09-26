@@ -27,7 +27,15 @@
     "validator_checking": "⏳ 正在检查 {0} 个令牌...",
     "validator_progress": "⏳ 检查中... {0}/{1}",
     "validator_done": "✅ 已完成检查 {0} 个令牌",
-    "validator_close": "关闭"
+    "validator_close": "关闭",
+    "btn_validate_channels": "🔍 检查频道",
+    "channel_validator_title": "检查频道 ID",
+    "channel_validator_result_title": "频道 ID 检查结果",
+    "channel_validator_checking": "⏳ 正在检查 {0} 个频道...",
+    "channel_validator_progress": "⏳ 检查中... {0}/{1}",
+    "channel_validator_done": "✅ 已完成检查 {0} 个频道",
+    "channel_validator_no_channels": "没有输入任何频道 ID 进行检查！",
+    "channel_validator_no_tokens": "检查频道 ID 至少需要 1 个有效令牌！"
   },
   "features_page": {
     "auto_delete": "🗑️  自动删除消息 (发送后立即删除)",

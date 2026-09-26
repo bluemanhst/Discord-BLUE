@@ -27,7 +27,15 @@
     "validator_checking": "⏳ Đang kiểm tra {0} token...",
     "validator_progress": "⏳ Đang kiểm tra... {0}/{1}",
     "validator_done": "✅ Đã kiểm tra xong {0} token",
-    "validator_close": "Đóng"
+    "validator_close": "Đóng",
+    "btn_validate_channels": "🔍 KIỂM TRA CHANNEL",
+    "channel_validator_title": "Kiểm tra Channel ID",
+    "channel_validator_result_title": "KẾT QUẢ KIỂM TRA CHANNEL ID",
+    "channel_validator_checking": "⏳ Đang kiểm tra {0} channel...",
+    "channel_validator_progress": "⏳ Đang kiểm tra... {0}/{1}",
+    "channel_validator_done": "✅ Đã kiểm tra xong {0} channel",
+    "channel_validator_no_channels": "Không có Channel ID nào để kiểm tra!",
+    "channel_validator_no_tokens": "Cần ít nhất 1 Token để kiểm tra Channel ID!"
   },
   "features_page": {
     "auto_delete": "🗑️  Xóa tin nhắn tự động (gửi xong xóa ngay)",
