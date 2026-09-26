@@ -153,6 +153,6 @@ Dự án được phân phối dưới giấy phép [MIT License](LICENSE). Bạ
 
 * **Tác giả**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
-* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhst)
+* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhstv4seo)
 
 
