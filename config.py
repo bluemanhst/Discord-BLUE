@@ -7,12 +7,13 @@ import json
 import os
 from tkinter import filedialog, messagebox
 from utils.constants import CONFIG_FILE
+from utils.theme import DEFAULT_THEME_NAME
 
 
 # ===== CẤU HÌNH MẶC ĐỊNH =====
 DEFAULT_CONFIG = {
     "language": "vietnamese",
-    "current_theme": "Dragon Ball (Mặc định)",
+    "current_theme": DEFAULT_THEME_NAME,
     "tokens": [""],
     "channel_ids": [""],
     "cooldown_min": 60,

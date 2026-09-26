@@ -4,6 +4,12 @@
 - [🇬🇧 English](README.en.md)
 - [🇨🇳 中文](README.zh.md)
 
+> ⚠️ **LƯU Ý SỬ DỤNG & TUÂN THỦ ĐIỀU KHOẢN (nên đọc trước khi dùng)**
+> * Dự án được phát hành cho mục đích **học tập, nghiên cứu kỹ thuật và kiểm thử tự động hóa**.
+> * Chỉ sử dụng trên **tài khoản của chính bạn** và trên máy chủ/kênh mà bạn **được phép**.
+> * Tự động hóa tài khoản người dùng (self-bot) và gửi tin hàng loạt có thể **vi phạm Điều khoản dịch vụ của Discord**; bạn tự chịu mọi rủi ro (khóa tài khoản, xử lý pháp lý…).
+> * **Không** dùng công cụ để spam, lừa đảo, quảng cáo rác, quấy rối hoặc xâm phạm quyền của người khác.
+
 ---
 
 **Discord BLUE** (bởi *bluemanhst*) là ứng dụng tự động hóa gửi tin nhắn đa luồng trên Discord với giao diện đồ họa (GUI) trực quan, được trang bị đầy đủ các cơ chế giả lập hành vi người dùng thật nhằm hạn chế tối đa nguy cơ bị Discord khóa tài khoản (Anti-Ban / Anti-Spam).
@@ -14,7 +20,7 @@
 
 Bạn có thể tải file `.exe` sử dụng trực tiếp mà không cần cài đặt Python:
 
-🔗 **[TẢI PHIÊN BẢN DISCORD BLUE MỚI NHẤT](https://github.com/bluemanhstv4seo/Discord-BLUE/releases)**
+🔗 **[TẢI PHIÊN BẢN DISCORD BLUE MỚI NHẤT](https://github.com/bluemanhst/Discord-BLUE/releases)**
 
 *(Tải file `Discord BLUE.exe` ở phần Assets của phiên bản mới nhất).*
 
@@ -54,7 +60,7 @@ Bạn có thể tải file `.exe` sử dụng trực tiếp mà không cần cà
 * Hỗ trợ nút **Export** xuất toàn bộ thống kê ra file `.json`.
 
 ### 🎨 7. Tùy biến giao diện & Cài đặt hệ thống
-* **3 Giao diện tùy chọn**: *Dragon Ball* (mặc định), *Discord Blurple*, *Dark Professional*.
+* **3 Giao diện tùy chọn**: *Dragon Ball* (mặc định), *Discord*, *Dark Professional*.
 * **Đa ngôn ngữ**: Hỗ trợ đầy đủ Tiếng Việt, Tiếng Anh (English) và Tiếng Trung (中文).
 * **System Tray**: Thu nhỏ ứng dụng xuống khay hệ thống góc màn hình khi bấm nút đóng (X).
 * **Khởi động cùng Windows**: Tùy chọn tự động chạy tool khi bật máy tính.
@@ -147,5 +153,5 @@ Dự án được phân phối dưới giấy phép [MIT License](../LICENSE). B
 
 * **Tác giả**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
-* **Facebook**: [bluemanhstv4seo](https://www.facebook.com/bluemanhstv4seo)
+* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhst)
 

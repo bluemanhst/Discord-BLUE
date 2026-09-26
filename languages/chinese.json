@@ -1,5 +1,16 @@
 {
   "app_name": "Discord BLUE",
+  "common": {
+    "success_title": "成功",
+    "error_title": "错误",
+    "warning_title": "警告",
+    "info_title": "提示",
+    "yes": "是",
+    "no": "否",
+    "enabled": "开",
+    "disabled": "关",
+    "unknown": "未知"
+  },
   "main_page": {
     "tokens_label": "Discord 令牌列表 (每行一个账户):",
     "channels_label": "目标频道ID (每行一个频道，工具会自动分发消息):",
@@ -35,7 +46,16 @@
     "channel_validator_progress": "⏳ 检查中... {0}/{1}",
     "channel_validator_done": "✅ 已完成检查 {0} 个频道",
     "channel_validator_no_channels": "没有输入任何频道 ID 进行检查！",
-    "channel_validator_no_tokens": "检查频道 ID 至少需要 1 个有效令牌！"
+    "channel_validator_no_tokens": "检查频道 ID 至少需要 1 个有效令牌！",
+    "validator_status_valid": "有效",
+    "validator_status_invalid": "无效",
+    "validator_no_tokens": "没有需要检查的令牌！",
+    "validator_module_missing": "找不到模块 {0}！",
+    "validator_error_prefix": "错误：{0}",
+    "token_error_default": "令牌不存在或已过期",
+    "channel_error_default": "找不到频道或令牌没有访问权限",
+    "channel_id_label": "频道 ID：{0}",
+    "channel_unknown_server": "未知服务器"
   },
   "features_page": {
     "auto_delete": "🗑️  自动删除消息 (发送后立即删除)",
@@ -99,11 +119,14 @@
     "col_deleted": "已删除",
     "col_errors": "错误",
     "col_success_rate": "成功 %",
-    "col_channel": "频道ID"
+    "col_channel": "频道ID",
+    "export_dialog_title": "导出仪表板统计",
+    "export_success_msg": "统计数据导出成功！\n\n文件：{0}",
+    "export_error_msg": "无法导出统计数据：\n{0}"
   },
   "settings_page": {
     "startup_enabled": "🚀 Windows启动时运行",
-    "startup_hint": "工具将在您启动Windows时自动运行。\n\n注意: 需要管理员权限才能启用此功能。",
+    "startup_hint": "工具将在您启动Windows时自动运行。\n\n注意: 工具写入当前用户注册表(HKCU)，不需要管理员权限。",
     "tray_enabled": "📱 最小化到系统托盘",
     "tray_hint": "关闭窗口时，工具将最小化到系统托盘而不是完全退出。\n\n注意: 需要重启工具才能应用此更改。",
     "language_label": "🌐 语言 / Language:",
@@ -113,8 +136,9 @@
     "startup_removed": "已从启动列表中移除工具。",
     "startup_added": "已将工具添加到启动列表！",
     "startup_error": "无法更改启动设置:",
-    "admin_required": "需要管理员权限",
-    "admin_msg": "您需要以管理员权限运行应用程序才能启用Windows启动。\n\n请关闭应用程序并以管理员权限重新运行。",
+    "section_system_subtitle": "管理操作系统集成与托盘通知",
+    "section_language_subtitle": "选择应用程序界面的显示语言",
+    "language_changed_msg": "语言已切换为 {0}！\n\n请重启应用程序以应用更改。",
     "tray_menu_show": "打开 Discord BLUE",
     "tray_menu_quit": "退出",
     "tray_unavailable_title": "无法启用系统托盘",
@@ -156,6 +180,7 @@
     "feature_auto_break": "  定期长时间休息: {0}",
     "feature_auto_stop_ban": "  被封禁/踢出时自动停止: {0}",
     "feature_schedule": "  计划时间: {0} ({1} - {2})",
-    "feature_smart_templates": "  消息随机化: {0}"
+    "feature_smart_templates": "  消息随机化: {0}",
+    "tray_enabled": "🖥️ 已启用系统托盘图标。\n"
   }
 }

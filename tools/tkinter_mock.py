@@ -18,8 +18,11 @@ class _Var:
 
 class _Widget:
     def __init__(self, *a, **k):
+        # Widget that: tham so dau tien la parent (giong tkinter that) -> can cho .master
+        self.master = a[0] if a else None
         self._text = ""
         self._cfg = dict(k)
+        self._children = []
 
     def pack(self, *a, **k):
         return None
@@ -36,6 +39,18 @@ class _Widget:
     def place(self, *a, **k):
         return None
 
+    def grid_columnconfigure(self, *a, **k):
+        return None
+
+    def grid_rowconfigure(self, *a, **k):
+        return None
+
+    def columnconfigure(self, *a, **k):
+        return None
+
+    def rowconfigure(self, *a, **k):
+        return None
+
     def bind(self, *a, **k):
         return None
 
@@ -50,6 +65,13 @@ class _Widget:
 
     def cget(self, k):
         return self._cfg.get(k, "")
+
+    def __getitem__(self, key):
+        # Widget that ho tro truy cap kieu dict: widget["bg"]
+        return self._cfg.get(key, "")
+
+    def __setitem__(self, key, value):
+        self._cfg[key] = value
 
     def get(self, *a, **k):
         return self._text
@@ -108,6 +130,12 @@ class _Widget:
     def title(self, *a):
         return None
 
+    def iconbitmap(self, *a, **k):
+        return None
+
+    def focus_set(self, *a, **k):
+        return None
+
     def geometry(self, *a):
         return None
 
@@ -140,6 +168,26 @@ class _Tk(_Widget):
     pass
 
 
+class _Style:
+    """Gia lap ttk.Style - du de configure_ttk_styles() chay trong test."""
+
+    def __init__(self, *a, **k):
+        # ttk.Style(master) - nhan ca tham so root
+        self.master = a[0] if a else None
+
+    def theme_names(self):
+        return ["clam"]
+
+    def theme_use(self, *a, **k):
+        return None
+
+    def configure(self, *a, **k):
+        return None
+
+    def map(self, *a, **k):
+        return None
+
+
 def _install():
     tk = types.ModuleType("tkinter")
     for name in ["Frame", "Label", "Button", "Entry", "Text", "Canvas",
@@ -148,7 +196,10 @@ def _install():
     tk.BooleanVar = _Var
     tk.StringVar = _Var
     tk.END = "end"
-    tk.ttk = types.SimpleNamespace(Combobox=_Widget, Notebook=_Widget, Treeview=_Widget)
+    tk.ttk = types.SimpleNamespace(
+        Combobox=_Widget, Notebook=_Widget, Treeview=_Widget,
+        Frame=_Widget, Label=_Widget, Scrollbar=_Widget, Style=_Style
+    )
     sys.modules["tkinter"] = tk
     sys.modules["tkinter.ttk"] = tk.ttk
     st = types.ModuleType("tkinter.scrolledtext")

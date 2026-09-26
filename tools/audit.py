@@ -1,5 +1,6 @@
 # tools/audit.py
-# Kiem tra tinh nhat quan du an: compile, key ngon ngu, config mau, spec/build.
+# Kiem tra tinh nhat quan du an: compile, key ngon ngu (thieu/thua), ten theme,
+# config mau, spec/build, pattern nguy hiem.
 # Cach chay:  python tools/audit.py   (exit 0 = dat, exit 1 = co loi)
 
 import compileall
@@ -7,6 +8,12 @@ import json
 import os
 import re
 import sys
+
+# Console Windows (cp1252) khong in duoc ten theme co dau tieng Viet -> ep UTF-8
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAILURES = []
@@ -84,10 +91,6 @@ def check_languages():
                 key = m.group(1)
                 if "." in key:
                     used.add(key)
-                    if "theme_page.apply" in key:
-                        print(f"DEBUG: {os.path.relpath(full, ROOT)} "
-                              f"line {src[:m.start()].count(chr(10)) + 1}: [{key}] "
-                              f"ctx=...{src[max(0, m.start()-60):m.start() + 60]!r}...")
     missing_vi = sorted(k for k in used if k not in data["vietnamese"])
     if missing_vi:
         fail(f"Key dung trong code nhung thieu trong VI ({len(missing_vi)}): {missing_vi[:10]}")
@@ -174,6 +177,72 @@ def check_build_files():
         ok("spec + build.bat dong bo (1 nguon cau hinh, da bundle languages/assets/tray)")
 
 
+def _read_all_sources():
+    """Doc toan bo source (bo qua build/dist/tools) -> {relpath: text}"""
+    sources = {}
+    for dirpath, _, filenames in os.walk(ROOT):
+        if any(s in dirpath for s in ("build", "dist", ".git", "__pycache__", "tools")):
+            continue
+        for name in filenames:
+            if not name.endswith((".py", ".pyw")):
+                continue
+            full = os.path.join(dirpath, name)
+            try:
+                with open(full, "r", encoding="utf-8", errors="ignore") as f:
+                    sources[os.path.relpath(full, ROOT)] = f.read()
+            except Exception:
+                continue
+    return sources
+
+
+def check_unused_language_keys():
+    """Key co trong file ngon ngu nhung khong noi nao dung = refactor i18n bo do dang"""
+    lang_path = os.path.join(ROOT, "languages", "vietnamese.json")
+    try:
+        with open(lang_path, "r", encoding="utf-8") as f:
+            keys = _flatten(json.load(f))
+    except Exception as e:
+        fail(f"Khong doc duoc languages/vietnamese.json: {e}")
+        return
+    src = "\n".join(_read_all_sources().values())
+    unused = [k for k in sorted(keys)
+              if not re.search(r'["\']' + re.escape(k) + r'["\']', src)]
+    if unused:
+        fail(f"Key ngon ngu khai bao nhung KHONG dung trong code ({len(unused)}): "
+             + ", ".join(unused[:10]))
+    else:
+        ok(f"Moi key ngon ngu deu duoc dung trong code ({len(keys)} key)")
+
+
+def check_theme_names():
+    """Ten theme trong config/DEFAULT phai ton tai trong utils.theme.THEMES"""
+    sys.path.insert(0, ROOT)
+    try:
+        from utils.theme import THEMES, DEFAULT_THEME_NAME
+        from config import DEFAULT_CONFIG
+    except Exception as e:
+        fail(f"Khong import duoc utils.theme/config: {e}")
+        return
+    problems = []
+    if DEFAULT_THEME_NAME not in THEMES:
+        problems.append(f"DEFAULT_THEME_NAME '{DEFAULT_THEME_NAME}' khong co trong THEMES")
+    if DEFAULT_CONFIG.get("current_theme") not in THEMES:
+        problems.append(
+            f"DEFAULT_CONFIG['current_theme'] '{DEFAULT_CONFIG.get('current_theme')}' khong co trong THEMES")
+    try:
+        with open(os.path.join(ROOT, "config.example.json"), "r", encoding="utf-8") as f:
+            sample = json.load(f)
+        if sample.get("current_theme") not in THEMES:
+            problems.append(
+                f"config.example.json current_theme '{sample.get('current_theme')}' khong co trong THEMES")
+    except Exception as e:
+        problems.append(f"Khong doc duoc config.example.json: {e}")
+    if problems:
+        fail("Ten theme lech voi utils.theme.THEMES:\n  " + "\n  ".join(problems))
+    else:
+        ok(f"Ten theme dong bo ({len(THEMES)} theme: " + ", ".join(THEMES) + ")")
+
+
 def check_danger_patterns():
     patterns = {
         r"importlib\.reload\(\s*constants\s*\)": "con reload(constants) lam mat theme",
@@ -205,6 +274,8 @@ def main():
     print("=" * 60)
     check_compile()
     check_languages()
+    check_unused_language_keys()
+    check_theme_names()
     check_config_sample()
     check_build_files()
     check_danger_patterns()

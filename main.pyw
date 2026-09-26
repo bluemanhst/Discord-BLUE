@@ -14,58 +14,28 @@ from datetime import datetime
 from config import config_data, save_config
 import language
 
-# Tiện ích đường dẫn (chạy source lẫn EXE) + log an toàn + âm thanh + tray
-from utils.paths import resource_path
+# Tiện ích: log an toàn + âm thanh + tray (đường dẫn icon lấy từ utils.constants.APP_ICON)
 from utils.helpers import ThreadSafeLog
 from utils.sound import set_all as set_sound_enabled, notify as notify_sound
 from utils.tray import TrayManager
 
-# Load theme từ config và cập nhật constants TRƯỚC khi import
-import utils.constants as constants
-saved_theme_name = config_data.get("current_theme", "Dragon Ball (Mặc định)")
-themes = {
-    "Dragon Ball (Mặc định)": {
-        "BG_DARK": "#1E1E24",
-        "BG_PANEL": "#2A2A35", 
-        "TXT_GOLD": "#FFCC00",
-        "TXT_WHITE": "#FFFFFF",
-        "BTN_ORANGE": "#FF6600",
-        "BTN_RED": "#CC0000",
-        "LOG_BLUE": "#00DDFF"
-    },
-    "Discord": {
-        "BG_DARK": "#36393f",
-        "BG_PANEL": "#2f3136",
-        "TXT_GOLD": "#5865F2", 
-        "TXT_WHITE": "#FFFFFF",
-        "BTN_ORANGE": "#5865F2",
-        "BTN_RED": "#ED4245",
-        "LOG_BLUE": "#5865F2"
-    },
-    "Dark Professional": {
-        "BG_DARK": "#121212",
-        "BG_PANEL": "#1E1E1E",
-        "TXT_GOLD": "#BB86FC",
-        "TXT_WHITE": "#E0E0E0", 
-        "BTN_ORANGE": "#BB86FC",
-        "BTN_RED": "#CF6679",
-        "LOG_BLUE": "#03DAC6"
-    }
-}
+# Load theme từ config TRƯỚC khi import các module UI
+# (các module UI lấy màu qua utils.theme.get_theme() nên phải chốt theme trước)
+from utils.theme import (
+    THEMES, DEFAULT_THEME_NAME, ThemeManager, configure_ttk_styles, get_theme
+)
 
-if saved_theme_name in themes:
-    saved_theme = themes[saved_theme_name]
-    constants.BG_DARK = saved_theme["BG_DARK"]
-    constants.BG_PANEL = saved_theme["BG_PANEL"]
-    constants.TXT_GOLD = saved_theme["TXT_GOLD"]
-    constants.TXT_WHITE = saved_theme["TXT_WHITE"]
-    constants.BTN_ORANGE = saved_theme["BTN_ORANGE"]
-    constants.BTN_RED = saved_theme["BTN_RED"]
-    constants.LOG_BLUE = saved_theme["LOG_BLUE"]
+saved_theme_name = config_data.get("current_theme", DEFAULT_THEME_NAME)
+theme_mgr = ThemeManager.get_instance()
+if saved_theme_name in THEMES:
+    theme_mgr.set_theme(saved_theme_name)
+else:
+    # Config chứa tên theme cũ/không hợp lệ -> quay về theme mặc định (ghi file khi user lưu cấu hình)
+    theme_mgr.set_theme(DEFAULT_THEME_NAME)
+    config_data["current_theme"] = DEFAULT_THEME_NAME
 
-# Import từ các module đã tách (sau khi đã cập nhật constants)
-from utils.constants import *
-from utils.helpers import is_in_schedule, process_smart_template
+# Import các hằng số UI tĩnh (kích thước cửa sổ, icon) sau khi đã chốt theme
+from utils.constants import WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WIDTH, MIN_HEIGHT, APP_ICON
 from discord.bot import run_single_account
 from discord.dashboard import dashboard
 from ui.navigation import create_navigation_bar
@@ -87,7 +57,7 @@ log_proxy = ThreadSafeLog()  # Cầu nối log an toàn cho các thread gửi ti
 # Icon khay hệ thống - tạo sẵn để dùng chung cho cả app
 tray_manager = TrayManager(
     icon_path=APP_ICON,
-    title="Discord BLUE",
+    title=language.t("app_name"),
     menu_show=language.t("settings_page.tray_menu_show"),
     menu_quit=language.t("settings_page.tray_menu_quit")
 )
@@ -151,22 +121,23 @@ def show_settings_page():
 def start_trigger():
     """Bắt đầu chạy tool"""
     global bot_running, bot_generation, account_threads
+    warn_title = language.t("common.warning_title")
     if bot_running[0]:
-        messagebox.showinfo("Thông báo", language.t("main_page.info_running"))
+        messagebox.showinfo(language.t("common.info_title"), language.t("main_page.info_running"))
         return
 
     raw_tokens = txt_tokens.get("1.0", tk.END).strip().split('\n')
     tokens = [t.strip() for t in raw_tokens if t.strip()]
 
     if not tokens:
-        messagebox.showwarning("Cảnh báo", language.t("main_page.warning_no_tokens"))
+        messagebox.showwarning(warn_title, language.t("main_page.warning_no_tokens"))
         return
 
     raw_channels = txt_channels.get("1.0", tk.END).strip().split('\n')
     channel_ids = [c.strip() for c in raw_channels if c.strip()]
 
     if not channel_ids:
-        messagebox.showwarning("Cảnh báo", language.t("main_page.warning_no_channels"))
+        messagebox.showwarning(warn_title, language.t("main_page.warning_no_channels"))
         return
 
     try:
@@ -187,26 +158,26 @@ def start_trigger():
             datetime.strptime(schedule_start, "%H:%M")
             datetime.strptime(schedule_end, "%H:%M")
         except ValueError:
-            messagebox.showwarning("Cảnh báo", language.t("main_page.warning_invalid_format"))
+            messagebox.showwarning(warn_title, language.t("main_page.warning_invalid_format"))
             return
         
         if min(cooldown_min, cooldown_max, delete_delay_ms, typing_min_sec, typing_max_sec,
                break_after_min, break_after_max, break_duration_min, break_duration_max) < 0:
             raise ValueError
         if cooldown_min > cooldown_max:
-            messagebox.showwarning("Cảnh báo", language.t("main_page.warning_cooldown_range"))
+            messagebox.showwarning(warn_title, language.t("main_page.warning_cooldown_range"))
             return
         if typing_min_sec > typing_max_sec:
-            messagebox.showwarning("Cảnh báo", language.t("main_page.warning_typing_range"))
+            messagebox.showwarning(warn_title, language.t("main_page.warning_typing_range"))
             return
         if break_after_min > break_after_max:
-            messagebox.showwarning("Cảnh báo", language.t("main_page.warning_break_range"))
+            messagebox.showwarning(warn_title, language.t("main_page.warning_break_range"))
             return
         if break_duration_min > break_duration_max:
-            messagebox.showwarning("Cảnh báo", language.t("main_page.warning_break_duration_range"))
+            messagebox.showwarning(warn_title, language.t("main_page.warning_break_duration_range"))
             return
     except ValueError:
-        messagebox.showwarning("Cảnh báo", language.t("main_page.warning_invalid_numbers"))
+        messagebox.showwarning(warn_title, language.t("main_page.warning_invalid_numbers"))
         return
 
     # Chỉ cập nhật những gì người dùng nhập trên UI và GIỮ NGUYÊN các key khác
@@ -293,14 +264,16 @@ def start_trigger():
         account_threads.append(t)
         t.start()
 
-    lbl_status.config(text=language.t("main_page.status_running"), fg="#FFCC00")
+    lbl_status.config(text=language.t("main_page.status_running"),
+                      fg=get_theme()["success"])
 
 # ===== HÀM DỪNG TOOL =====
 def stop_trigger():
     """Dừng tool"""
     bot_running[0] = False
     bot_generation[0] += 1  # Buộc mọi thread đang ngủ phải thoát ra ngay
-    lbl_status.config(text=language.t("main_page.status_stopped"), fg="#FF3333")
+    lbl_status.config(text=language.t("main_page.status_stopped"),
+                      fg=get_theme()["danger"])
     log_area.insert(tk.END, language.t("log_messages.stopped"), "system")
     log_area.see(tk.END)
     notify_sound("stop")
@@ -336,16 +309,18 @@ def pump_tray_commands():
 
 # ===== KHỞI TẠO ROOT WINDOW =====
 root = tk.Tk()
-root.title("Discord BLUE by bluemanhst")
+root.title(f"{language.t('app_name')} by bluemanhst")
 root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 root.minsize(MIN_WIDTH, MIN_HEIGHT)
-root.configure(bg=BG_DARK)
+root.configure(bg=get_theme()["bg_app"])
+
+# Áp dụng ttk styles đồng bộ
+configure_ttk_styles(root)
 
 # Load icon app (đường dẫn đã được utils.paths tính đúng cho cả source lẫn EXE)
-icon_path = resource_path("assets", "logo.ico")
-if os.path.exists(icon_path):
+if os.path.exists(APP_ICON):
     try:
-        root.iconbitmap(icon_path)
+        root.iconbitmap(APP_ICON)
     except Exception:
         pass  # Không load được icon thì bỏ qua, không ảnh hưởng tool
 
@@ -397,7 +372,7 @@ root.after(300, pump_tray_commands)
 # Bật icon khay hệ thống nếu người dùng đã bật từ lần chạy trước
 if config_data.get("features", {}).get("tray_enabled"):
     if tray_manager.start():
-        log_area.insert(tk.END, "🖥️ Đã bật icon khay hệ thống (System Tray).\n", "system")
+        log_area.insert(tk.END, language.t("log_messages.tray_enabled"), "system")
 
 # ===== HIỂN THỊ TRANG CHÍNH BAN ĐẦU =====
 show_main_page()

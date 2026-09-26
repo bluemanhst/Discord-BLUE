@@ -4,6 +4,12 @@
 - [🇻🇳 Tiếng Việt](README.md)
 - [🇬🇧 English](README.en.md)
 
+> ⚠️ **使用与条款合规提示（使用前请阅读）**
+> * 本项目仅用于**学习、技术研究与自动化测试**。
+> * 仅可用于**你自己的账号**，以及你**已获明确授权**的服务器/频道。
+> * 自动化用户账号（self-bot）与批量发送消息可能**违反 Discord 服务条款**，一切风险由使用者自行承担（账号封禁、法律责任等）。
+> * **严禁**用于垃圾信息、诈骗、骚扰或侵犯他人权益。
+
 ---
 
 **Discord BLUE**（由 *bluemanhst* 开发）是一款直观的多线程Discord自动消息发送工具，具备完整的图形用户界面（GUI），并配备了完善的人性化模拟机制，以最大程度地降低被Discord检测或封号的风险（防封/防垃圾邮件）。
@@ -14,7 +20,7 @@
 
 您可以直接下载编译好的 `.exe` 文件使用，无需安装 Python：
 
-🔗 **[在此下载最新版本 DISCORD BLUE](https://github.com/bluemanhstv4seo/Discord-BLUE/releases)**
+🔗 **[在此下载最新版本 DISCORD BLUE](https://github.com/bluemanhst/Discord-BLUE/releases)**
 
 *（在最新版本的 Assets 部分下载 `Discord BLUE.exe` 文件）。*
 
@@ -54,7 +60,7 @@
 * 支持一键将所有统计数据导出为 `.json` 文件。
 
 ### 🎨 7. 界面定制与系统设置
-* **3款精美预设主题**：*七龙珠 Dragon Ball*（默认）、*Discord Blurple*、*专业暗黑 Dark Professional*。
+* **3款精美预设主题**：*七龙珠 Dragon Ball*（默认）、*Discord*、*专业暗黑 Dark Professional*。
 * **多语言支持**：完整支持简体中文、英文和越南语。
 * **系统托盘 (System Tray)**：关闭窗口时最小化到系统右下角托盘（需 `pystray`）。
 * **开机自启**：支持随 Windows 系统自动启动。
@@ -146,4 +152,4 @@ python main.pyw
 
 * **作者**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
-* **Facebook**: [bluemanhstv4seo](https://www.facebook.com/bluemanhstv4seo)
+* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhst)

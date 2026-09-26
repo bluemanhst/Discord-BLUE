@@ -3,14 +3,18 @@
 # Author: bluemanhst
 
 import tkinter as tk
-from utils.constants import BG_DARK, BG_PANEL, TXT_GOLD, TXT_WHITE, FONT_LABEL, FONT_ENTRY, BTN_RED
+from utils.theme import (
+    get_theme, create_card_frame, create_section_header,
+    create_styled_button, create_styled_entry,
+    FONT_BODY, FONT_BODY_BOLD, FONT_CAPTION, FONT_SECTION
+)
 from config import config_data
 import language
 
 
 def create_features_page(root):
     """
-    Tạo trang tính năng với scrollable frame
+    Tạo trang tính năng với cấu trúc Cards phân cấp rõ ràng, dễ scan
     
     Args:
         root: Root window
@@ -18,225 +22,282 @@ def create_features_page(root):
     Returns:
         tuple: (frame_features_page, các biến UI)
     """
-    # Frame chính của trang
-    frame_features_page = tk.Frame(root, bg=BG_DARK)
-    
-    # Frame chứa các tính năng (có thanh cuộn)
-    frame_scroll_container = tk.Frame(frame_features_page, bg=BG_DARK)
-    frame_scroll_container.pack(fill="both", expand=True, padx=15, pady=10)
+    t = get_theme()
 
-    # Canvas và scrollbar cho scrollable
-    canvas_features = tk.Canvas(frame_scroll_container, bg=BG_PANEL, highlightthickness=0)
+    frame_features_page = tk.Frame(root, bg=t["bg_app"])
+
+    # Scrollable container
+    frame_scroll_container = tk.Frame(frame_features_page, bg=t["bg_app"])
+    frame_scroll_container.pack(fill="both", expand=True, padx=20, pady=16)
+
+    canvas_features = tk.Canvas(frame_scroll_container, bg=t["bg_app"], highlightthickness=0)
     scrollbar_features = tk.Scrollbar(frame_scroll_container, orient="vertical", command=canvas_features.yview)
     canvas_features.pack(side="left", fill="both", expand=True)
     scrollbar_features.pack(side="right", fill="y")
     canvas_features.configure(yscrollcommand=scrollbar_features.set)
 
-    # Frame chứa nội dung
-    frame_feature_options = tk.Frame(canvas_features, bg=BG_PANEL, bd=2, relief="ridge")
-    canvas_features_window = canvas_features.create_window((0, 0), window=frame_feature_options, anchor="nw")
+    # Frame chứa nội dung (dạng stack cards)
+    frame_content = tk.Frame(canvas_features, bg=t["bg_app"])
+    canvas_window = canvas_features.create_window((0, 0), window=frame_content, anchor="nw")
 
-    # Event handlers cho scroll
-    def _on_feature_frame_configure(event):
+    def _on_frame_configure(event):
         canvas_features.configure(scrollregion=canvas_features.bbox("all"))
-    frame_feature_options.bind("<Configure>", _on_feature_frame_configure)
 
-    def _on_features_canvas_configure(event):
-        canvas_features.itemconfig(canvas_features_window, width=event.width)
-    canvas_features.bind("<Configure>", _on_features_canvas_configure)
+    frame_content.bind("<Configure>", _on_frame_configure)
 
-    def _on_features_mousewheel(event):
+    def _on_canvas_configure(event):
+        canvas_features.itemconfig(canvas_window, width=event.width)
+
+    canvas_features.bind("<Configure>", _on_canvas_configure)
+
+    def _on_mousewheel(event):
         if frame_features_page.winfo_ismapped():
             canvas_features.yview_scroll(int(-1 * (event.delta / 120)), "units")
-    canvas_features.bind_all("<MouseWheel>", _on_features_mousewheel)
+
+    canvas_features.bind_all("<MouseWheel>", _on_mousewheel)
+
+    # Helper tạo card tính năng
+    def make_feature_card(title, is_checked_var):
+        card, inner = create_card_frame(frame_content, padx=20, pady=16)
+        card.pack(fill="x", pady=(0, 14))
+
+        chk = tk.Checkbutton(
+            inner,
+            text=title,
+            variable=is_checked_var,
+            bg=t["bg_panel"],
+            fg=t["text_primary"],
+            selectcolor=t["bg_input"],
+            activebackground=t["bg_panel"],
+            activeforeground=t["text_primary"],
+            font=FONT_SECTION,
+            cursor="hand2"
+        )
+        chk.pack(anchor="w")
+
+        body_frame = tk.Frame(inner, bg=t["bg_panel"])
+        body_frame.pack(fill="x", padx=26, pady=(8, 0))
+        return card, body_frame
 
     # ===== TÍNH NĂNG #1: Auto Delete =====
     var_auto_delete = tk.BooleanVar(value=config_data.get("features", {}).get("auto_delete", False))
-    chk_auto_delete = tk.Checkbutton(frame_feature_options, text=language.t("features_page.auto_delete"),
-                                  variable=var_auto_delete, bg=BG_PANEL, fg=TXT_WHITE,
-                                  selectcolor=BG_PANEL, font=FONT_LABEL, activebackground=BG_PANEL)
-    chk_auto_delete.pack(anchor="w", padx=10, pady=8)
+    _, body_delete = make_feature_card(language.t("features_page.auto_delete"), var_auto_delete)
 
-    frame_delete_delay = tk.Frame(frame_feature_options, bg=BG_PANEL)
-    frame_delete_delay.pack(anchor="w", padx=30, pady=(0, 8), fill="x")
+    tk.Label(
+        body_delete,
+        text=language.t("features_page.delete_delay_label"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY_BOLD
+    ).pack(anchor="w")
 
-    tk.Label(frame_delete_delay, text=language.t("features_page.delete_delay_label"), 
-           bg=BG_PANEL, fg=TXT_WHITE, font=FONT_LABEL).pack(anchor="w")
-    entry_delete_delay = tk.Entry(frame_delete_delay, width=15, bg=BG_DARK, fg=TXT_WHITE, 
-                               insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_delete_delay.pack(anchor="w", pady=4)
+    _, entry_delete_delay = create_styled_entry(body_delete, width=15)
+    entry_delete_delay.master.pack(anchor="w", pady=(4, 6))
     entry_delete_delay.insert(0, str(config_data.get("features", {}).get("delete_delay_ms", 0)))
 
-    lbl_delay_hint = tk.Label(
-        frame_delete_delay,
+    tk.Label(
+        body_delete,
         text=language.t("features_page.delete_delay_hint"),
-        bg=BG_PANEL, fg="#AAAAAA", font=("Arial", 8, "italic"), justify="left"
-    )
-    lbl_delay_hint.pack(anchor="w", pady=(0, 4))
-
-    # Dòng phân cách
-    tk.Label(frame_feature_options, text="", bg=BG_PANEL).pack(pady=2)
-    tk.Label(frame_feature_options, text="─" * 60, bg=BG_PANEL, fg="#555555").pack(pady=5)
+        bg=t["bg_panel"],
+        fg=t["text_muted"],
+        font=FONT_CAPTION,
+        justify="left"
+    ).pack(anchor="w")
 
     # ===== TÍNH NĂNG #2: Auto Typing =====
     var_auto_typing = tk.BooleanVar(value=config_data.get("features", {}).get("auto_typing", False))
-    chk_auto_typing = tk.Checkbutton(frame_feature_options, text=language.t("features_page.auto_typing"),
-                                  variable=var_auto_typing, bg=BG_PANEL, fg=TXT_WHITE,
-                                  selectcolor=BG_PANEL, font=FONT_LABEL, activebackground=BG_PANEL)
-    chk_auto_typing.pack(anchor="w", padx=10, pady=8)
+    _, body_typing = make_feature_card(language.t("features_page.auto_typing"), var_auto_typing)
 
-    frame_typing = tk.Frame(frame_feature_options, bg=BG_PANEL)
-    frame_typing.pack(anchor="w", padx=30, pady=(0, 8), fill="x")
+    typing_row = tk.Frame(body_typing, bg=t["bg_panel"])
+    typing_row.pack(anchor="w", pady=(0, 6))
 
-    frame_typing_time = tk.Frame(frame_typing, bg=BG_PANEL)
-    frame_typing_time.pack(anchor="w")
-    tk.Label(frame_typing_time, text=language.t("features_page.typing_range_label"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=0, sticky="w")
-    entry_typing_min = tk.Entry(frame_typing_time, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                               insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_typing_min.grid(row=0, column=1, padx=5)
+    tk.Label(
+        typing_row,
+        text=language.t("features_page.typing_range_label"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_typing_min = create_styled_entry(typing_row, width=6)
+    entry_typing_min.master.pack(side="left", padx=6)
     entry_typing_min.insert(0, str(config_data.get("features", {}).get("typing_min_sec", 2)))
-    tk.Label(frame_typing_time, text=language.t("features_page.typing_to"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=2)
-    entry_typing_max = tk.Entry(frame_typing_time, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                               insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_typing_max.grid(row=0, column=3, padx=5)
+
+    tk.Label(
+        typing_row,
+        text=language.t("features_page.typing_to"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_typing_max = create_styled_entry(typing_row, width=6)
+    entry_typing_max.master.pack(side="left", padx=6)
     entry_typing_max.insert(0, str(config_data.get("features", {}).get("typing_max_sec", 5)))
 
-    tk.Label(frame_typing, text=language.t("features_page.typing_hint"),
-           bg=BG_PANEL, fg="#AAAAAA", font=("Arial", 8, "italic"), justify="left").pack(anchor="w", pady=(4, 0))
-
-    # Dòng phân cách
-    tk.Label(frame_feature_options, text="", bg=BG_PANEL).pack(pady=2)
-    tk.Label(frame_feature_options, text="─" * 60, bg=BG_PANEL, fg="#555555").pack(pady=5)
+    tk.Label(
+        body_typing,
+        text=language.t("features_page.typing_hint"),
+        bg=t["bg_panel"],
+        fg=t["text_muted"],
+        font=FONT_CAPTION,
+        justify="left"
+    ).pack(anchor="w")
 
     # ===== TÍNH NĂNG #3: Auto Break =====
     var_auto_break = tk.BooleanVar(value=config_data.get("features", {}).get("auto_break", False))
-    chk_auto_break = tk.Checkbutton(frame_feature_options, text=language.t("features_page.auto_break"),
-                                   variable=var_auto_break, bg=BG_PANEL, fg=TXT_WHITE,
-                                   selectcolor=BG_PANEL, font=FONT_LABEL, activebackground=BG_PANEL)
-    chk_auto_break.pack(anchor="w", padx=10, pady=8)
+    _, body_break = make_feature_card(language.t("features_page.auto_break"), var_auto_break)
 
-    frame_break = tk.Frame(frame_feature_options, bg=BG_PANEL)
-    frame_break.pack(anchor="w", padx=30, pady=(0, 8), fill="x")
+    break_after_row = tk.Frame(body_break, bg=t["bg_panel"])
+    break_after_row.pack(anchor="w", pady=(0, 6))
 
-    frame_break_after = tk.Frame(frame_break, bg=BG_PANEL)
-    frame_break_after.pack(anchor="w")
-    tk.Label(frame_break_after, text=language.t("features_page.break_after_label"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=0, sticky="w")
-    entry_break_after_min = tk.Entry(frame_break_after, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                                     insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_break_after_min.grid(row=0, column=1, padx=5)
+    tk.Label(
+        break_after_row,
+        text=language.t("features_page.break_after_label"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_break_after_min = create_styled_entry(break_after_row, width=6)
+    entry_break_after_min.master.pack(side="left", padx=6)
     entry_break_after_min.insert(0, str(config_data.get("features", {}).get("break_after_min", 15)))
-    tk.Label(frame_break_after, text=language.t("features_page.break_after_to"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=2)
-    entry_break_after_max = tk.Entry(frame_break_after, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                                     insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_break_after_max.grid(row=0, column=3, padx=5)
+
+    tk.Label(
+        break_after_row,
+        text=language.t("features_page.break_after_to"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_break_after_max = create_styled_entry(break_after_row, width=6)
+    entry_break_after_max.master.pack(side="left", padx=6)
     entry_break_after_max.insert(0, str(config_data.get("features", {}).get("break_after_max", 25)))
-    tk.Label(frame_break_after, text=language.t("features_page.break_after_end"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=4, padx=(5, 0))
 
-    frame_break_duration = tk.Frame(frame_break, bg=BG_PANEL)
-    frame_break_duration.pack(anchor="w", pady=(6, 0))
-    tk.Label(frame_break_duration, text=language.t("features_page.break_duration_label"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=0, sticky="w")
-    entry_break_duration_min = tk.Entry(frame_break_duration, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                                        insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_break_duration_min.grid(row=0, column=1, padx=5)
+    tk.Label(
+        break_after_row,
+        text=language.t("features_page.break_after_end"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left", padx=(4, 0))
+
+    break_dur_row = tk.Frame(body_break, bg=t["bg_panel"])
+    break_dur_row.pack(anchor="w", pady=(0, 6))
+
+    tk.Label(
+        break_dur_row,
+        text=language.t("features_page.break_duration_label"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_break_duration_min = create_styled_entry(break_dur_row, width=6)
+    entry_break_duration_min.master.pack(side="left", padx=6)
     entry_break_duration_min.insert(0, str(config_data.get("features", {}).get("break_duration_min", 10)))
-    tk.Label(frame_break_duration, text=language.t("features_page.break_duration_to"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=2)
-    entry_break_duration_max = tk.Entry(frame_break_duration, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                                        insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_break_duration_max.grid(row=0, column=3, padx=5)
+
+    tk.Label(
+        break_dur_row,
+        text=language.t("features_page.break_duration_to"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_break_duration_max = create_styled_entry(break_dur_row, width=6)
+    entry_break_duration_max.master.pack(side="left", padx=6)
     entry_break_duration_max.insert(0, str(config_data.get("features", {}).get("break_duration_max", 30)))
-    tk.Label(frame_break_duration, text=language.t("features_page.break_duration_end"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=4, padx=(5, 0))
 
-    tk.Label(frame_break, text=language.t("features_page.break_hint"),
-           bg=BG_PANEL, fg="#AAAAAA", font=("Arial", 8, "italic"), justify="left").pack(anchor="w", pady=(6, 0))
+    tk.Label(
+        break_dur_row,
+        text=language.t("features_page.break_duration_end"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left", padx=(4, 0))
 
-    # Dòng phân cách
-    tk.Label(frame_feature_options, text="", bg=BG_PANEL).pack(pady=2)
-    tk.Label(frame_feature_options, text="─" * 60, bg=BG_PANEL, fg="#555555").pack(pady=5)
+    tk.Label(
+        body_break,
+        text=language.t("features_page.break_hint"),
+        bg=t["bg_panel"],
+        fg=t["text_muted"],
+        font=FONT_CAPTION,
+        justify="left"
+    ).pack(anchor="w")
 
     # ===== TÍNH NĂNG #4: Auto Stop on Ban =====
     var_auto_stop_ban = tk.BooleanVar(value=config_data.get("features", {}).get("auto_stop_on_ban", True))
-    chk_auto_stop_ban = tk.Checkbutton(frame_feature_options, text=language.t("features_page.auto_stop_ban"),
-                                      variable=var_auto_stop_ban, bg=BG_PANEL, fg=TXT_WHITE,
-                                      selectcolor=BG_PANEL, font=FONT_LABEL, activebackground=BG_PANEL)
-    chk_auto_stop_ban.pack(anchor="w", padx=10, pady=8)
+    _, body_ban = make_feature_card(language.t("features_page.auto_stop_ban"), var_auto_stop_ban)
 
-    tk.Label(frame_feature_options,
-           text=language.t("features_page.auto_stop_ban_hint"),
-           bg=BG_PANEL, fg="#AAAAAA", font=("Arial", 8, "italic"), justify="left").pack(anchor="w", padx=30, pady=(0, 8))
-
-    # Dòng phân cách
-    tk.Label(frame_feature_options, text="", bg=BG_PANEL).pack(pady=2)
-    tk.Label(frame_feature_options, text="─" * 60, bg=BG_PANEL, fg="#555555").pack(pady=5)
+    tk.Label(
+        body_ban,
+        text=language.t("features_page.auto_stop_ban_hint"),
+        bg=t["bg_panel"],
+        fg=t["text_muted"],
+        font=FONT_CAPTION,
+        justify="left"
+    ).pack(anchor="w")
 
     # ===== TÍNH NĂNG #5: Schedule =====
     var_schedule = tk.BooleanVar(value=config_data.get("features", {}).get("schedule", False))
-    chk_schedule = tk.Checkbutton(frame_feature_options, text=language.t("features_page.schedule"),
-                               variable=var_schedule, bg=BG_PANEL, fg=TXT_WHITE,
-                               selectcolor=BG_PANEL, font=FONT_LABEL, activebackground=BG_PANEL)
-    chk_schedule.pack(anchor="w", padx=10, pady=8)
+    _, body_sched = make_feature_card(language.t("features_page.schedule"), var_schedule)
 
-    frame_schedule = tk.Frame(frame_feature_options, bg=BG_PANEL)
-    frame_schedule.pack(anchor="w", padx=30, pady=(0, 8), fill="x")
+    sched_row = tk.Frame(body_sched, bg=t["bg_panel"])
+    sched_row.pack(anchor="w", pady=(0, 6))
 
-    frame_schedule_time = tk.Frame(frame_schedule, bg=BG_PANEL)
-    frame_schedule_time.pack(anchor="w")
-    tk.Label(frame_schedule_time, text=language.t("features_page.schedule_from"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=0, sticky="w")
-    entry_schedule_start = tk.Entry(frame_schedule_time, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                                    insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_schedule_start.grid(row=0, column=1, padx=5)
+    tk.Label(
+        sched_row,
+        text=language.t("features_page.schedule_from"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_schedule_start = create_styled_entry(sched_row, width=6)
+    entry_schedule_start.master.pack(side="left", padx=6)
     entry_schedule_start.insert(0, str(config_data.get("features", {}).get("schedule_start", "09:00")))
-    tk.Label(frame_schedule_time, text=language.t("features_page.schedule_to"), bg=BG_PANEL, fg=TXT_WHITE, 
-           font=FONT_LABEL).grid(row=0, column=2)
-    entry_schedule_end = tk.Entry(frame_schedule_time, width=6, bg=BG_DARK, fg=TXT_WHITE, 
-                                  insertbackground=TXT_WHITE, font=FONT_ENTRY, bd=2, relief="ridge")
-    entry_schedule_end.grid(row=0, column=3, padx=5)
+
+    tk.Label(
+        sched_row,
+        text=language.t("features_page.schedule_to"),
+        bg=t["bg_panel"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    ).pack(side="left")
+
+    _, entry_schedule_end = create_styled_entry(sched_row, width=6)
+    entry_schedule_end.master.pack(side="left", padx=6)
     entry_schedule_end.insert(0, str(config_data.get("features", {}).get("schedule_end", "17:00")))
 
-    tk.Label(frame_schedule, text=language.t("features_page.schedule_hint"),
-           bg=BG_PANEL, fg="#AAAAAA", font=("Arial", 8, "italic"), justify="left").pack(anchor="w", pady=(4, 0))
-
-    # Dòng phân cách
-    tk.Label(frame_feature_options, text="", bg=BG_PANEL).pack(pady=2)
-    tk.Label(frame_feature_options, text="─" * 60, bg=BG_PANEL, fg="#555555").pack(pady=5)
+    tk.Label(
+        body_sched,
+        text=language.t("features_page.schedule_hint"),
+        bg=t["bg_panel"],
+        fg=t["text_muted"],
+        font=FONT_CAPTION,
+        justify="left"
+    ).pack(anchor="w")
 
     # ===== TÍNH NĂNG #6: Smart Templates =====
     var_smart_templates = tk.BooleanVar(value=config_data.get("features", {}).get("smart_templates", False))
-    chk_smart_templates = tk.Checkbutton(frame_feature_options, text=language.t("features_page.smart_templates"),
-                                        variable=var_smart_templates, bg=BG_PANEL, fg=TXT_WHITE,
-                                        selectcolor=BG_PANEL, font=FONT_LABEL, activebackground=BG_PANEL)
-    chk_smart_templates.pack(anchor="w", padx=10, pady=8)
-    
-    # Nút xem chi tiết
-    btn_smart_templates_info = tk.Button(frame_feature_options, text=language.t("features_page.smart_templates_btn"),
-                                       bg="#2196F3", fg=TXT_WHITE, font=("Arial", 9, "bold"),
-                                       activebackground="#1976D2", activeforeground=TXT_WHITE, bd=2,
-                                       command=show_smart_templates_info)
-    btn_smart_templates_info.pack(anchor="w", padx=10, pady=(0, 8))
+    _, body_smart = make_feature_card(language.t("features_page.smart_templates"), var_smart_templates)
 
-    # Dòng phân cách
-    tk.Label(frame_feature_options, text="", bg=BG_PANEL).pack(pady=2)
-    tk.Label(frame_feature_options, text="─" * 60, bg=BG_PANEL, fg="#555555").pack(pady=5)
+    btn_smart_templates_info = create_styled_button(
+        body_smart,
+        text=language.t("features_page.smart_templates_btn"),
+        command=show_smart_templates_info,
+        variant="ghost",
+        padx=10,
+        pady=4
+    )
+    btn_smart_templates_info.pack(anchor="w", pady=(2, 4))
 
     # ===== TÍNH NĂNG #7: Sound Notifications =====
     var_sound_enabled = tk.BooleanVar(value=config_data.get("features", {}).get("sound_enabled", False))
-    chk_sound = tk.Checkbutton(frame_feature_options, text=language.t("features_page.sound_enabled"),
-                             variable=var_sound_enabled, bg=BG_PANEL, fg=TXT_WHITE,
-                             selectcolor=BG_PANEL, font=FONT_LABEL, activebackground=BG_PANEL)
-    chk_sound.pack(anchor="w", padx=10, pady=8)
+    _, body_sound = make_feature_card(language.t("features_page.sound_enabled"), var_sound_enabled)
 
-    frame_sound = tk.Frame(frame_feature_options, bg=BG_PANEL)
-    frame_sound.pack(anchor="w", padx=30, pady=(0, 8), fill="x")
-
-    # ===== CÁC LOẠI ÂM THANH (bật/tắt riêng từng loại) =====
     var_sound_error = tk.BooleanVar(value=config_data.get("features", {}).get("sound_error", True))
     var_sound_stop = tk.BooleanVar(value=config_data.get("features", {}).get("sound_stop", True))
     var_sound_success = tk.BooleanVar(value=config_data.get("features", {}).get("sound_success", True))
@@ -248,57 +309,76 @@ def create_features_page(root):
     ]
 
     for label_key, sound_var in sound_options:
-        chk_opt = tk.Checkbutton(frame_sound, text="• " + language.t(label_key), variable=sound_var,
-                               bg=BG_PANEL, fg="#AAAAAA", selectcolor=BG_PANEL,
-                               font=("Arial", 8), activebackground=BG_PANEL)
-        chk_opt.pack(anchor="w", padx=5)
+        chk_opt = tk.Checkbutton(
+            body_sound,
+            text=language.t(label_key),
+            variable=sound_var,
+            bg=t["bg_panel"],
+            fg=t["text_secondary"],
+            selectcolor=t["bg_input"],
+            activebackground=t["bg_panel"],
+            activeforeground=t["text_primary"],
+            font=FONT_BODY,
+            cursor="hand2"
+        )
+        chk_opt.pack(anchor="w", pady=2)
 
-    # Dòng phân cách
-    tk.Label(frame_feature_options, text="", bg=BG_PANEL). pack(pady=2)
-    tk.Label(frame_feature_options, text="─" * 60, bg=BG_PANEL, fg="#555555").pack(pady=5)
-
-    return (frame_features_page, 
-            var_auto_delete, entry_delete_delay,
-            var_auto_typing, entry_typing_min, entry_typing_max,
-            var_auto_break, entry_break_after_min, entry_break_after_max, 
-            entry_break_duration_min, entry_break_duration_max,
-            var_auto_stop_ban,
-            var_schedule, entry_schedule_start, entry_schedule_end,
-            var_smart_templates,
-            var_sound_enabled, var_sound_error, var_sound_stop, var_sound_success)
+    return (
+        frame_features_page,
+        var_auto_delete, entry_delete_delay,
+        var_auto_typing, entry_typing_min, entry_typing_max,
+        var_auto_break, entry_break_after_min, entry_break_after_max,
+        entry_break_duration_min, entry_break_duration_max,
+        var_auto_stop_ban,
+        var_schedule, entry_schedule_start, entry_schedule_end,
+        var_smart_templates,
+        var_sound_enabled, var_sound_error, var_sound_stop, var_sound_success
+    )
 
 
 def show_smart_templates_info():
-    """
-    Hiển thị popup giải thích chi tiết về random hóa tin nhắn
-    """
+    """Hiển thị modal popup hướng dẫn cú pháp Smart Template chuẩn chỉnh"""
     from tkinter import Toplevel, scrolledtext
-    
-    # Tạo cửa sổ popup
+    t = get_theme()
+
     info_window = Toplevel()
     info_window.title(language.t("features_page.smart_templates_title"))
     info_window.geometry("560x520")
-    info_window.configure(bg=BG_DARK)
-    
-    # Frame chứa nội dung
-    frame_content = tk.Frame(info_window, bg=BG_DARK)
-    frame_content.pack(fill="both", expand=True, padx=15, pady=15)
-    
-    # Tiêu đề
-    tk.Label(frame_content, text=language.t("features_page.smart_templates_title"), 
-           bg=BG_DARK, fg=TXT_GOLD, font=("Arial", 11, "bold")).pack(pady=8)
-    
-    # Scrollable text cho nội dung
-    info_text = scrolledtext.ScrolledText(frame_content, height=18, bg=BG_PANEL, fg=TXT_WHITE, 
-                                       font=("Arial", 9), wrap="word")
-    info_text.pack(fill="both", expand=True, pady=8)
-    
-    # Nội dung giải thích
+    info_window.configure(bg=t["bg_app"])
+
+    container = tk.Frame(info_window, bg=t["bg_app"])
+    container.pack(fill="both", expand=True, padx=20, pady=20)
+
+    card, inner = create_card_frame(container, padx=16, pady=16)
+    card.pack(fill="both", expand=True)
+
+    create_section_header(
+        inner,
+        title=language.t("features_page.smart_templates_title")
+    )
+
+    info_text = scrolledtext.ScrolledText(
+        inner,
+        height=16,
+        bg=t["bg_input"],
+        fg=t["text_primary"],
+        font=FONT_BODY,
+        relief="flat",
+        bd=4,
+        wrap="word"
+    )
+    info_text.pack(fill="both", expand=True, pady=(8, 12))
+
     explanation = language.t("features_page.smart_templates_content")
-    
     info_text.insert("1.0", explanation)
     info_text.config(state="disabled")
-    
-    # Nút dong
-    tk.Button(frame_content, text=language.t("features_page.smart_templates_close"), command=info_window.destroy,
-             bg=BTN_RED, fg=TXT_WHITE, font=("Arial", 10, "bold"), bd=2).pack(pady=8)
+
+    btn_close = create_styled_button(
+        inner,
+        text=language.t("features_page.smart_templates_close"),
+        command=info_window.destroy,
+        variant="secondary",
+        padx=16,
+        pady=6
+    )
+    btn_close.pack(anchor="e")

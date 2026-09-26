@@ -1,5 +1,16 @@
 {
   "app_name": "Discord BLUE",
+  "common": {
+    "success_title": "Thành công",
+    "error_title": "Lỗi",
+    "warning_title": "Cảnh báo",
+    "info_title": "Thông báo",
+    "yes": "Có",
+    "no": "Chưa",
+    "enabled": "Bật",
+    "disabled": "Tắt",
+    "unknown": "Không xác định"
+  },
   "main_page": {
     "tokens_label": "Danh sách Discord Tokens (Mỗi tài khoản 1 dòng):",
     "channels_label": "Target Channel ID (Mỗi kênh 1 dòng, tool sẽ tự rải tin qua các kênh):",
@@ -35,7 +46,16 @@
     "channel_validator_progress": "⏳ Đang kiểm tra... {0}/{1}",
     "channel_validator_done": "✅ Đã kiểm tra xong {0} channel",
     "channel_validator_no_channels": "Không có Channel ID nào để kiểm tra!",
-    "channel_validator_no_tokens": "Cần ít nhất 1 Token để kiểm tra Channel ID!"
+    "channel_validator_no_tokens": "Cần ít nhất 1 Token để kiểm tra Channel ID!",
+    "validator_status_valid": "HỢP LỆ",
+    "validator_status_invalid": "KHÔNG HỢP LỆ",
+    "validator_no_tokens": "Không có token nào để kiểm tra!",
+    "validator_module_missing": "Module {0} không tìm thấy!",
+    "validator_error_prefix": "Lỗi: {0}",
+    "token_error_default": "Token không tồn tại hoặc đã hết hạn",
+    "channel_error_default": "Không tìm thấy kênh hoặc token không có quyền truy cập",
+    "channel_id_label": "Channel ID: {0}",
+    "channel_unknown_server": "Máy chủ không xác định"
   },
   "features_page": {
     "auto_delete": "🗑️  Xóa tin nhắn tự động (gửi xong xóa ngay)",
@@ -99,11 +119,14 @@
     "col_deleted": "Đã Xóa",
     "col_errors": "Lỗi",
     "col_success_rate": "Thành Công %",
-    "col_channel": "Kênh ID"
+    "col_channel": "Kênh ID",
+    "export_dialog_title": "Export thống kê Dashboard",
+    "export_success_msg": "Đã export thống kê thành công!\n\nFile: {0}",
+    "export_error_msg": "Không thể export thống kê:\n{0}"
   },
   "settings_page": {
     "startup_enabled": "🚀 Chạy cùng Windows khi khởi động",
-    "startup_hint": "Tool sẽ tự động chạy khi bạn khởi động Windows.\n\nLưu ý: Cần quyền Administrator để bật tính năng này.",
+    "startup_hint": "Tool sẽ tự động chạy khi bạn khởi động Windows.\n\nLưu ý: Tool ghi vào khoá registry của người dùng (HKCU) nên KHÔNG cần quyền Administrator.",
     "tray_enabled": "📱 Minimize xuống System Tray",
     "tray_hint": "Khi đóng cửa sổ, tool sẽ ẩn xuống system tray thay vì thoát hoàn toàn.\n\nLưu ý: Cần restart tool để áp dụng thay đổi này.",
     "language_label": "🌐 Ngôn ngữ / Language:",
@@ -113,8 +136,9 @@
     "startup_removed": "Đã xóa tool khỏi danh sách startup.",
     "startup_added": "Đã thêm tool vào danh sách startup!",
     "startup_error": "Không thể thay đổi cài đặt startup:",
-    "admin_required": "Cần quyền Administrator",
-    "admin_msg": "Bạn cần chạy ứng dụng với quyền Administrator để bật tính năng chạy cùng Windows.\n\nVui lòng đóng ứng dụng và chạy lại với quyền Administrator.",
+    "section_system_subtitle": "Quản lý tích hợp hệ điều hành và thông báo khay hệ thống",
+    "section_language_subtitle": "Chọn ngôn ngữ giao diện hiển thị cho ứng dụng",
+    "language_changed_msg": "Đã đổi ngôn ngữ thành {0}!\n\nVui lòng khởi động lại ứng dụng để áp dụng thay đổi.",
     "tray_menu_show": "Mở Discord BLUE",
     "tray_menu_quit": "Thoát",
     "tray_unavailable_title": "Không bật được System Tray",
@@ -156,6 +180,7 @@
     "feature_auto_break": "  Nghỉ dài định kỳ: {0}",
     "feature_auto_stop_ban": "  Tự dừng khi bị ban/kick: {0}",
     "feature_schedule": "  Hẹn giờ: {0} ({1} - {2})",
-    "feature_smart_templates": "  Random hóa tin nhắn: {0}"
+    "feature_smart_templates": "  Random hóa tin nhắn: {0}",
+    "tray_enabled": "🖥️ Đã bật icon khay hệ thống (System Tray).\n"
   }
 }

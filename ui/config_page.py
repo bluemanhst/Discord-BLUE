@@ -3,42 +3,60 @@
 # Author: bluemanhst
 
 import tkinter as tk
-from utils.constants import BG_PANEL, BTN_ORANGE, TXT_WHITE
+from utils.theme import get_theme, create_card_frame, create_section_header, create_styled_button
 from config import config_data, export_config, import_and_apply_config
 import language
 
 
 def create_config_page(root):
     """
-    Tạo trang quản lý cấu hình với nút Export/Import
+    Tạo trang quản lý cấu hình với thiết kế Card phẳng chuyên nghiệp
     
     Args:
         root: Root window
     
     Returns:
-        tuple: (frame_config_page)
+        Frame: frame_config_page
     """
-    # Frame chính của trang
-    frame_config_page = tk.Frame(root, bg=BG_PANEL)
+    t = get_theme()
 
-    # Frame chứa các nút
-    frame_config_main = tk.Frame(frame_config_page, bg=BG_PANEL, bd=2, relief="ridge")
-    frame_config_main.pack(fill="both", expand=True, padx=15, pady=10)
+    frame_config_page = tk.Frame(root, bg=t["bg_app"])
 
-    frame_config_buttons = tk.Frame(frame_config_main, bg=BG_PANEL)
-    frame_config_buttons.pack(anchor="w", padx=30, pady=(20, 8), fill="x")
+    container = tk.Frame(frame_config_page, bg=t["bg_app"])
+    container.pack(fill="both", expand=True, padx=20, pady=16)
 
-    btn_export = tk.Button(frame_config_buttons, text=language.t("config_page.btn_export"), command=lambda: export_config(config_data),
-                          bg=BTN_ORANGE, fg=TXT_WHITE, font=("Arial", 10, "bold"),
-                          activebackground="#E65C00", activeforeground=TXT_WHITE, bd=3, relief="ridge", padx=20, pady=10)
-    btn_export.pack(side="left", padx=10)
+    # Main Card
+    card, card_inner = create_card_frame(container, padx=24, pady=20)
+    card.pack(fill="both", expand=True)
 
-    btn_import = tk.Button(frame_config_buttons, text=language.t("config_page.btn_import"), command=import_and_apply_config,
-                          bg=BTN_ORANGE, fg=TXT_WHITE, font=("Arial", 10, "bold"),
-                          activebackground="#E65C00", activeforeground=TXT_WHITE, bd=3, relief="ridge", padx=20, pady=10)
-    btn_import.pack(side="left", padx=10)
+    create_section_header(
+        card_inner,
+        title=language.t("config_page.btn_export") + " / " + language.t("config_page.btn_import"),
+        subtitle=language.t("config_page.config_hint")
+    )
 
-    tk.Label(frame_config_main, text=language.t("config_page.config_hint"), 
-           bg=BG_PANEL, fg="#AAAAAA", font=("Arial", 9), justify="left").pack(anchor="w", padx=30, pady=10)
+    # Actions container
+    actions_frame = tk.Frame(card_inner, bg=t["bg_panel"])
+    actions_frame.pack(anchor="w", pady=(16, 8))
+
+    btn_export = create_styled_button(
+        actions_frame,
+        text=language.t("config_page.btn_export"),
+        command=lambda: export_config(config_data),
+        variant="primary",
+        padx=18,
+        pady=8
+    )
+    btn_export.pack(side="left", padx=(0, 10))
+
+    btn_import = create_styled_button(
+        actions_frame,
+        text=language.t("config_page.btn_import"),
+        command=import_and_apply_config,
+        variant="secondary",
+        padx=18,
+        pady=8
+    )
+    btn_import.pack(side="left")
 
     return frame_config_page

@@ -1,5 +1,16 @@
 {
   "app_name": "Discord BLUE",
+  "common": {
+    "success_title": "Success",
+    "error_title": "Error",
+    "warning_title": "Warning",
+    "info_title": "Notice",
+    "yes": "Yes",
+    "no": "No",
+    "enabled": "On",
+    "disabled": "Off",
+    "unknown": "Unknown"
+  },
   "main_page": {
     "tokens_label": "Discord Tokens List (One token per line):",
     "channels_label": "Target Channel ID (One channel per line, tool will spread messages across channels):",
@@ -35,7 +46,16 @@
     "channel_validator_progress": "⏳ Checking... {0}/{1}",
     "channel_validator_done": "✅ Finished checking {0} channel(s)",
     "channel_validator_no_channels": "No Channel IDs to check!",
-    "channel_validator_no_tokens": "At least 1 Token is required to check Channel IDs!"
+    "channel_validator_no_tokens": "At least 1 Token is required to check Channel IDs!",
+    "validator_status_valid": "VALID",
+    "validator_status_invalid": "INVALID",
+    "validator_no_tokens": "There are no tokens to check!",
+    "validator_module_missing": "Module {0} not found!",
+    "validator_error_prefix": "Error: {0}",
+    "token_error_default": "Token does not exist or has expired",
+    "channel_error_default": "Channel not found or the token has no access permission",
+    "channel_id_label": "Channel ID: {0}",
+    "channel_unknown_server": "Unknown server"
   },
   "features_page": {
     "auto_delete": "🗑️  Auto Delete Messages (Delete immediately after sending)",
@@ -99,11 +119,14 @@
     "col_deleted": "Deleted",
     "col_errors": "Errors",
     "col_success_rate": "Success %",
-    "col_channel": "Channel ID"
+    "col_channel": "Channel ID",
+    "export_dialog_title": "Export Dashboard Stats",
+    "export_success_msg": "Statistics exported successfully!\n\nFile: {0}",
+    "export_error_msg": "Failed to export statistics:\n{0}"
   },
   "settings_page": {
     "startup_enabled": "🚀 Run on Windows Startup",
-    "startup_hint": "Tool will automatically run when you start Windows.\n\nNote: Requires Administrator permissions to enable this feature.",
+    "startup_hint": "Tool will automatically run when you start Windows.\n\nNote: The tool writes to the current user registry (HKCU), so Administrator permissions are NOT required.",
     "tray_enabled": "📱 Minimize to System Tray",
     "tray_hint": "When closing window, tool will minimize to system tray instead of exiting completely.\n\nNote: Requires tool restart to apply this change.",
     "language_label": "🌐 Language / Ngôn ngữ:",
@@ -113,8 +136,9 @@
     "startup_removed": "Removed tool from startup list.",
     "startup_added": "Added tool to startup list!",
     "startup_error": "Cannot change startup settings:",
-    "admin_required": "Administrator Required",
-    "admin_msg": "You need to run the application with Administrator permissions to enable Windows startup.\n\nPlease close the application and run again with Administrator permissions.",
+    "section_system_subtitle": "Manage OS integration and tray notifications",
+    "section_language_subtitle": "Choose the display language for the application interface",
+    "language_changed_msg": "Language changed to {0}!\n\nPlease restart the application to apply the changes.",
     "tray_menu_show": "Open Discord BLUE",
     "tray_menu_quit": "Exit",
     "tray_unavailable_title": "Cannot enable System Tray",
@@ -156,6 +180,7 @@
     "feature_auto_break": "  Long Break: {0}",
     "feature_auto_stop_ban": "  Auto stop on ban/kick: {0}",
     "feature_schedule": "  Schedule: {0} ({1} - {2})",
-    "feature_smart_templates": "  Randomize Messages: {0}"
+    "feature_smart_templates": "  Randomize Messages: {0}",
+    "tray_enabled": "🖥️ System tray icon enabled.\n"
   }
 }

@@ -1,15 +1,19 @@
 # tools/test_integration.py
 # Test tich hop: nap main.pyw that (mock tkinter) + mo phong bam nut.
-# Cach chay:  python tools/test_integration.py   (exit 0 = 31/31 pass)
+# Cach chay:  python tools/test_integration.py   (exit 0 = tat ca pass)
 
 import copy
 import os
-import re
 import sys
-import types
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
+sys.path.insert(0, TOOLS_DIR)
+
+# QUAN TRONG: phai nap tkinter gia lap TRUOC moi import khac, vi utils.theme cache
+# lai module ttk ngay khi duoc import -> nap muon se crash configure_ttk_styles().
+import tkinter_mock  # noqa: E402,F401
 
 PASS = 0
 FAIL = 0
@@ -28,7 +32,7 @@ def check(name, cond, detail=""):
 
 
 print("=" * 60)
-print("Discord BLUE - Test tich hop (28 assertions)")
+print("Discord BLUE - Test tich hop: nap main.pyw that + mo phong bam nut")
 print("=" * 60)
 # --- 1. Helpers: schedule / spintax / sleep co the ngat ---
 from utils.helpers import (is_in_schedule, process_spintax,
@@ -90,7 +94,20 @@ check("REMOVED_FEATURE_KEYS khong con trong DEFAULT_CONFIG",
       all(k not in DEFAULT_CONFIG.get("features", {}) for k in REMOVED_FEATURE_KEYS))
 
 # --- 3. Nap main.pyw that voi tkinter gia lap + mo phong bam nut ---
-import tkinter_mock  # noqa: F401 - nap mock truoc khi import main
+# Test KHONG duoc ghi de config.json that cua nguoi dung -> tro sang file tam
+import tempfile
+import config as config_module
+import utils.sound as sound_module
+
+_tmp_dir = tempfile.mkdtemp(prefix="discord_blue_test_")
+config_module.CONFIG_FILE = os.path.join(_tmp_dir, "config.json")
+config_module.config_data.clear()
+config_module.config_data.update(copy.deepcopy(config_module.DEFAULT_CONFIG))
+
+# Tat am thanh + tray trong luc test (khong beep, khong tao icon khay that)
+sound_module.notify = lambda *a, **k: None
+sound_module.set_all = lambda *a, **k: None
+
 import importlib.util
 
 spec = importlib.util.spec_from_file_location("app_main", os.path.join(ROOT, "main.pyw"))
@@ -114,7 +131,6 @@ _mb.showwarning = lambda *a, **k: warnings_shown.append(a)
 _mb.showinfo = lambda *a, **k: infos_shown.append(a)
 
 calls = []
-RealThread = __import__("threading").Thread
 
 
 class FakeThread:
@@ -219,6 +235,50 @@ gen_stop = app_main.bot_generation[0]
 app_main.stop_trigger()
 check("nut DUNG tat bot + tang generation",
       app_main.bot_running[0] is False and app_main.bot_generation[0] == gen_stop + 1)
+
+# --- 4. i18n: moi key dung trong code phai dich duoc o ca 3 ngon ngu ---
+import json
+import re
+import language
+
+
+def _flatten_lang(d, prefix=""):
+    """Lam phang dict long nhau thanh {section.key: value}"""
+    out = {}
+    for k, v in d.items():
+        key = f"{prefix}.{k}" if prefix else k
+        if isinstance(v, dict):
+            out.update(_flatten_lang(v, key))
+        else:
+            out[key] = v
+    return out
+
+
+with open(os.path.join(ROOT, "languages", "vietnamese.json"), "r", encoding="utf-8") as _f:
+    _vi_keys = _flatten_lang(json.load(_f))
+
+_src_all = ""
+for _dirpath, _, _names in os.walk(ROOT):
+    if any(s in _dirpath for s in ("build", "dist", ".git", "__pycache__", "tools")):
+        continue
+    for _name in _names:
+        if _name.endswith((".py", ".pyw")):
+            with open(os.path.join(_dirpath, _name), "r", encoding="utf-8", errors="ignore") as _f:
+                _src_all += _f.read()
+
+_used_keys = [k for k in _vi_keys
+              if re.search(r'["\']' + re.escape(k) + r'["\']', _src_all)]
+
+_untranslated = []
+for _code in ("vietnamese", "english", "chinese"):
+    language.set_language(_code)
+    for _key in _used_keys:
+        if language.t(_key) == _key:
+            _untranslated.append(f"{_code}:{_key}")
+
+check(f"moi key dung trong code deu dich duoc o ca 3 ngon ngu ({len(_used_keys)} key)",
+      not _untranslated, detail=str(_untranslated[:5]))
+language.set_language("vietnamese")
 
 print("=" * 60)
 print(f"KET QUA: {PASS} pass, {FAIL} fail")

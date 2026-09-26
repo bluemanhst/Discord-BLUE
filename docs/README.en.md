@@ -4,6 +4,12 @@
 - [🇻🇳 Tiếng Việt](README.md)
 - [🇨🇳 中文](README.zh.md)
 
+> ⚠️ **USAGE & TERMS COMPLIANCE NOTICE (please read before use)**
+> * This project is released for **educational, technical-research and automation-testing purposes**.
+> * Only use it on **accounts you own** and on servers/channels where you have **explicit permission**.
+> * Automating user accounts (self-botting) and bulk messaging may **violate the Discord Terms of Service**; you bear all risk (account termination, legal action…).
+> * **Never** use this tool for spam, fraud, unsolicited advertising, harassment, or to infringe on the rights of others.
+
 ---
 
 **Discord BLUE** (by *bluemanhst*) is an intuitive multi-threaded Discord auto-messaging tool with a full graphical user interface (GUI). It is equipped with comprehensive human-like simulation mechanisms to minimize the risk of spam detection or account bans (Anti-Ban / Anti-Spam).
@@ -14,7 +20,7 @@
 
 You can download the pre-compiled `.exe` file directly without needing to install Python:
 
-🔗 **[DOWNLOAD LATEST DISCORD BLUE RELEASE](https://github.com/bluemanhstv4seo/Discord-BLUE/releases)**
+🔗 **[DOWNLOAD LATEST DISCORD BLUE RELEASE](https://github.com/bluemanhst/Discord-BLUE/releases)**
 
 *(Download `Discord BLUE.exe` from the Assets section of the latest release).*
 
@@ -54,7 +60,7 @@ You can download the pre-compiled `.exe` file directly without needing to instal
 * **Export** all stats directly to a `.json` file.
 
 ### 🎨 7. UI Customization & System Settings
-* **3 Preset Themes**: *Dragon Ball* (Default), *Discord Blurple*, and *Dark Professional*.
+* **3 Preset Themes**: *Dragon Ball* (Default), *Discord*, and *Dark Professional*.
 * **Multi-Language Support**: English, Vietnamese (Tiếng Việt), and Chinese (中文).
 * **System Tray**: Minimize the app to the Windows taskbar notification tray when closing.
 * **Startup with Windows**: Option to automatically start the tool when Windows boots up.
@@ -147,4 +153,4 @@ This project is licensed under the [MIT License](../LICENSE). You are free to us
 
 * **Author**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
-* **Facebook**: [bluemanhstv4seo](https://www.facebook.com/bluemanhstv4seo)
+* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhstv4seo)

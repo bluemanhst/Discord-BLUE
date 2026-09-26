@@ -2,124 +2,157 @@
 # Trang chọn theme - Dragon Ball, Discord, Dark Professional
 # Author: bluemanhst
 
-import sys
-import os
-# Thêm đường dẫn root để import được các module khi chạy file trực tiếp
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import tkinter as tk
 from tkinter import messagebox
-from utils.constants import BG_PANEL, BG_DARK, TXT_GOLD, TXT_WHITE
+from utils.theme import (
+    THEMES, DEFAULT_THEME_NAME, get_theme,
+    create_card_frame, create_section_header, FONT_BODY, FONT_BUTTON
+)
 from config import config_data, save_config
 import language
 
 
 def create_theme_page(root):
     """
-    Tạo trang chọn theme với các preset theme
-
-    Theme chỉ được LƯU vào config; người dùng đóng và mở lại tool
-    để áp dụng (an toàn cho bản EXE, tránh restart process).
-
+    Tạo trang chọn theme với thiết kế dạng danh sách lựa chọn chuyên nghiệp.
+    Lưu theme vào config và thông báo khởi động lại để áp dụng an toàn.
+    
     Returns:
-        tuple: (frame_theme_page)
+        Frame: frame_theme_page
     """
-    # Frame chính của trang
-    frame_theme_page = tk.Frame(root, bg=BG_DARK)
+    t = get_theme()
 
-    # Frame chứa theme options
-    frame_theme_main = tk.Frame(frame_theme_page, bg=BG_PANEL, bd=2, relief="ridge")
-    frame_theme_main.pack(fill="both", expand=True, padx=15, pady=10)
+    frame_theme_page = tk.Frame(root, bg=t["bg_app"])
 
-    # Theme presets
-    themes = {
-        "Dragon Ball (Mặc định)": {
-            "BG_DARK": "#1E1E24",
-            "BG_PANEL": "#2A2A35", 
-            "TXT_GOLD": "#FFCC00",
-            "TXT_WHITE": "#FFFFFF",
-            "BTN_ORANGE": "#FF6600",
-            "BTN_RED": "#CC0000",
-            "LOG_BLUE": "#00DDFF"
-        },
-        "Discord": {
-            "BG_DARK": "#36393f",
-            "BG_PANEL": "#2f3136",
-            "TXT_GOLD": "#5865F2", 
-            "TXT_WHITE": "#FFFFFF",
-            "BTN_ORANGE": "#5865F2",
-            "BTN_RED": "#ED4245",
-            "LOG_BLUE": "#5865F2"
-        },
-        "Dark Professional": {
-            "BG_DARK": "#121212",
-            "BG_PANEL": "#1E1E1E",
-            "TXT_GOLD": "#BB86FC",
-            "TXT_WHITE": "#E0E0E0", 
-            "BTN_ORANGE": "#BB86FC",
-            "BTN_RED": "#CF6679",
-            "LOG_BLUE": "#03DAC6"
-        }
-    }
+    container = tk.Frame(frame_theme_page, bg=t["bg_app"])
+    container.pack(fill="both", expand=True, padx=20, pady=16)
 
-    # Lấy theme hiện tại từ config (mặc định là Dragon Ball)
-    current_theme = config_data.get("current_theme", "Dragon Ball (Mặc định)")
+    card, card_inner = create_card_frame(container, padx=24, pady=20)
+    card.pack(fill="both", expand=True)
+
+    current_theme = config_data.get("current_theme", DEFAULT_THEME_NAME)
+
+    create_section_header(
+        card_inner,
+        title=language.t("theme_page.select_theme"),
+        subtitle=language.t("theme_page.theme_reopen")
+    )
+
+    # Current theme indicator banner
+    status_banner = tk.Frame(
+        card_inner,
+        bg=t["bg_hover"],
+        highlightthickness=1,
+        highlightbackground=t["border"],
+        padx=14,
+        pady=10
+    )
+    status_banner.pack(fill="x", pady=(0, 16))
+
+    lbl_status_title = tk.Label(
+        status_banner,
+        text=language.t("theme_page.theme_label"),
+        bg=t["bg_hover"],
+        fg=t["text_secondary"],
+        font=FONT_BODY
+    )
+    lbl_status_title.pack(side="left")
+
+    lbl_current_theme = tk.Label(
+        status_banner,
+        text=current_theme,
+        bg=t["bg_hover"],
+        fg=t["accent"],
+        font=FONT_BUTTON
+    )
+    lbl_current_theme.pack(side="left", padx=(8, 0))
+
+    theme_buttons = {}
 
     def apply_theme(theme_name):
-        """Lưu theme; người dùng mở lại tool để áp dụng"""
         nonlocal current_theme
-        theme = themes[theme_name]
-        
-        # Cập nhật theme hiện tại
         current_theme = theme_name
-        
-        # Lưu vào config (chi luu, KHONG restart app)
+
         config_data["current_theme"] = theme_name
         if not save_config(config_data):
             return
 
-        # Cập nhật label hiển thị theme đang chọn
-        lbl_current_theme.config(
-            text=f"{language.t('theme_page.theme_current')} {theme_name}",
-            bg=theme["BG_PANEL"], fg=theme["TXT_GOLD"])
-        
-        # Cập nhật màu các frame chính trong trang theme
-        frame_theme_page.configure(bg=theme["BG_DARK"])
-        frame_theme_main.configure(bg=theme["BG_PANEL"])
-        
-        # Cập nhật lại các nút theme
-        for btn in frame_theme_main.winfo_children():
-            if isinstance(btn, tk.Button):
-                btn_name = btn.cget("text")
-                if btn_name in themes:
-                    btn_theme = themes[btn_name]
-                    btn.configure(bg=btn_theme["BTN_ORANGE"])
-            elif isinstance(btn, tk.Label):
-                btn.configure(bg=theme["BG_PANEL"], fg=theme["TXT_GOLD"])
-        
-        # KHONG tu restart app (nguyen nhan loi init.tcl trong EXE khi doi
-        # theme lien tuc); thong bao nguoi dung tu dong/mo lai tool
+        lbl_current_theme.config(text=theme_name)
+
+        # Highlight selected theme button
+        for name, btn in theme_buttons.items():
+            if name == theme_name:
+                btn.config(
+                    bg=t["bg_hover"],
+                    highlightbackground=t["accent"],
+                    highlightcolor=t["accent"]
+                )
+            else:
+                btn.config(
+                    bg=t["bg_panel"],
+                    highlightbackground=t["border"],
+                    highlightcolor=t["border"]
+                )
+
         messagebox.showinfo(
-            "Theme", f"{language.t('theme_page.theme_current')} {theme_name}\n\n"
-            + language.t("theme_page.theme_reopen"))
+            language.t("common.info_title"),
+            f"{language.t('theme_page.theme_current')} {theme_name}\n\n"
+            + language.t("theme_page.theme_reopen")
+        )
 
-    # Label hiển thị theme đang chọn
-    tk.Label(frame_theme_main, text=language.t("theme_page.theme_label"), bg=BG_PANEL, fg=TXT_GOLD, 
-           font=("Arial", 10, "bold")).pack(anchor="w", padx=30, pady=(20, 5))
-    
-    lbl_current_theme = tk.Label(frame_theme_main, text=f"{language.t('theme_page.theme_current')} {current_theme}", 
-                                bg=BG_PANEL, fg=TXT_GOLD, font=("Arial", 10))
-    lbl_current_theme.pack(anchor="w", padx=30, pady=(0, 15))
+    # Theme options list
+    themes_list_frame = tk.Frame(card_inner, bg=t["bg_panel"])
+    themes_list_frame.pack(fill="x", pady=4)
 
-    # Theme buttons
-    tk.Label(frame_theme_main, text=language.t("theme_page.select_theme"), bg=BG_PANEL, fg=TXT_GOLD, 
-           font=("Arial", 10, "bold")).pack(anchor="w", padx=30, pady=(10, 10))
+    for theme_name, theme_data in THEMES.items():
+        is_selected = (theme_name == current_theme)
 
-    for i, (theme_name, theme_data) in enumerate(themes.items()):
-        btn_theme = tk.Button(frame_theme_main, text=theme_name, 
-                            command=lambda t=theme_name: apply_theme(t),
-                            bg=theme_data["BTN_ORANGE"], fg=TXT_WHITE,
-                            font=("Arial", 10, "bold"), bd=3, relief="ridge", padx=20, pady=10)
-        btn_theme.pack(fill="x", padx=30, pady=5)
+        opt_frame = tk.Frame(
+            themes_list_frame,
+            bg=t["bg_hover"] if is_selected else t["bg_panel"],
+            highlightthickness=1,
+            highlightbackground=t["accent"] if is_selected else t["border"],
+            cursor="hand2"
+        )
+        opt_frame.pack(fill="x", pady=6)
+        theme_buttons[theme_name] = opt_frame
+
+        # Inner content
+        content_box = tk.Frame(opt_frame, bg=opt_frame["bg"])
+        content_box.pack(fill="x", padx=16, pady=12)
+
+        # Color preview pills
+        preview_box = tk.Frame(content_box, bg=opt_frame["bg"])
+        preview_box.pack(side="right", padx=(10, 0))
+
+        for color_key in ["bg_app", "bg_panel", "accent", "text_primary"]:
+            pill = tk.Frame(
+                preview_box,
+                bg=theme_data[color_key],
+                width=16,
+                height=16,
+                highlightthickness=1,
+                highlightbackground=t["border"]
+            )
+            pill.pack(side="left", padx=2)
+
+        lbl_name = tk.Label(
+            content_box,
+            text=theme_name,
+            bg=opt_frame["bg"],
+            fg=t["text_primary"],
+            font=FONT_BUTTON,
+            anchor="w"
+        )
+        lbl_name.pack(side="left")
+
+        # Click handler for entire card
+        def make_click_handler(tn=theme_name):
+            return lambda e: apply_theme(tn)
+
+        handler = make_click_handler()
+        opt_frame.bind("<Button-1>", handler)
+        content_box.bind("<Button-1>", handler)
+        lbl_name.bind("<Button-1>", handler)
 
     return frame_theme_page
