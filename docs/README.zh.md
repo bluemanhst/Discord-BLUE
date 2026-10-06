@@ -148,8 +148,23 @@ python main.pyw
 
 ---
 
+## 🌐 BLUE LABS 生态系统
+
+**Discord BLUE** 是 **BLUE LABS** 生态系统的一部分 — 由 *bluemanhst* 开发的一套自动化工具集：
+
+| 项目 | 描述 | 语言 |
+|------|------|------|
+| [**Discord BLUE**](https://github.com/bluemanhst/Discord-BLUE) | Discord 自动化工具（本仓库） | Python |
+| [**Roblox BLUE**](https://github.com/bluemanhst/Roblox-BLUE) | Roblox 辅助工具（多开、AFK 等） | C++ |
+
+---
+
 ## 👨‍💻 作者与联系方式
 
 * **作者**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
-* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhstv4seo)
+* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhst)
+
+<div align="center">
+  <sub>Made with ❤️ by <a href="https://github.com/bluemanhst">bluemanhst</a> · BLUE LABS Ecosystem</sub>
+</div>

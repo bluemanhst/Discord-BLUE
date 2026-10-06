@@ -149,10 +149,26 @@ Dự án được phân phối dưới giấy phép [MIT License](LICENSE). Bạ
 
 ---
 
+## 🌐 HỆ SINH THÁI BLUE LABS
+
+**Discord BLUE** là một phần của hệ sinh thái **BLUE LABS** — bộ công cụ tự động hóa do *bluemanhst* phát triển:
+
+| Dự án | Mô tả | Ngôn ngữ |
+|-------|-------|----------|
+| [**Discord BLUE**](https://github.com/bluemanhst/Discord-BLUE) | Tự động hóa Discord (repo này) | Python |
+| [**Roblox BLUE**](https://github.com/bluemanhst/Roblox-BLUE) | Hỗ trợ chơi Roblox (Multi-Instance, AFK, ...) | C++ |
+
+---
+
 ## 👨‍💻 TÁC GIẢ & LIÊN HỆ
 
 * **Tác giả**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
-* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhstv4seo)
+* **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhst)
+
+<div align="center">
+  <sub>Made with ❤️ by <a href="https://github.com/bluemanhst">bluemanhst</a> · BLUE LABS Ecosystem</sub>
+</div>
+
 
 

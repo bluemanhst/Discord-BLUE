@@ -149,8 +149,23 @@ This project is licensed under the [MIT License](../LICENSE). You are free to us
 
 ---
 
+## 🌐 BLUE LABS ECOSYSTEM
+
+**Discord BLUE** is part of the **BLUE LABS** ecosystem — a suite of automation tools developed by *bluemanhst*:
+
+| Project | Description | Language |
+|---------|-------------|----------|
+| [**Discord BLUE**](https://github.com/bluemanhst/Discord-BLUE) | Discord automation tool (this repo) | Python |
+| [**Roblox BLUE**](https://github.com/bluemanhst/Roblox-BLUE) | Roblox assistance tool (Multi-Instance, AFK, ...) | C++ |
+
+---
+
 ## 👨‍💻 AUTHOR & CONTACT
 
 * **Author**: bluemanhst
 * **Discord**: [bluemanhst](https://discord.com/users/481280614956400690)
 * **Facebook**: [bluemanhst](https://www.facebook.com/bluemanhstv4seo)
+
+<div align="center">
+  <sub>Made with ❤️ by <a href="https://github.com/bluemanhst">bluemanhst</a> · BLUE LABS Ecosystem</sub>
+</div>
