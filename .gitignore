@@ -53,3 +53,8 @@ dist/
 
 # Cline / Cora IDE
 .cora/
+
+# Local AI notes / backup (khong push len GitHub)
+AI_HANDOFF.md
+backups/
+backup_now.ps1

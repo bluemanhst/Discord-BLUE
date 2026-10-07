@@ -18,9 +18,20 @@ import language
 def validate_tokens_widget(txt_tokens_widget):
     """
     Hiển thị modal validate tokens với giao diện clean card
-    
+
     Args:
         txt_tokens_widget: Widget text chứa tokens
+    """
+    raw_tokens = txt_tokens_widget.get("1.0", tk.END).strip().split('\n')
+    validate_token_list([t.strip() for t in raw_tokens if t.strip()])
+
+
+def validate_token_list(tokens):
+    """
+    Kiểm tra danh sách token (list[str]) - không cần widget text.
+
+    Args:
+        tokens: Danh sách token cần kiểm tra
     """
     try:
         from discord.token_validator import validate_multiple_tokens, get_avatar_url
@@ -31,8 +42,7 @@ def validate_tokens_widget(txt_tokens_widget):
         )
         return
 
-    raw_tokens = txt_tokens_widget.get("1.0", tk.END).strip().split('\n')
-    tokens = [t.strip() for t in raw_tokens if t.strip()]
+    tokens = [str(t).strip() for t in (tokens or []) if str(t).strip()]
 
     if not tokens:
         messagebox.showwarning(
@@ -282,20 +292,11 @@ def validate_tokens_widget(txt_tokens_widget):
 def validate_channels_widget(txt_channels_widget, txt_tokens_widget):
     """
     Hiển thị modal validate channel IDs với layout hiện đại
-    
+
     Args:
         txt_channels_widget: Widget text chứa channels
         txt_tokens_widget: Widget text chứa tokens
     """
-    try:
-        from discord.channel_validator import validate_channel
-    except ImportError:
-        messagebox.showerror(
-            language.t("common.error_title"),
-            language.t("main_page.validator_module_missing", "discord.channel_validator")
-        )
-        return
-
     raw_channels = txt_channels_widget.get("1.0", tk.END).strip().split('\n')
     channels = [c.strip() for c in raw_channels if c.strip()]
 
@@ -313,6 +314,37 @@ def validate_channels_widget(txt_channels_widget, txt_tokens_widget):
         messagebox.showwarning(
             language.t("common.warning_title"),
             language.t("main_page.channel_validator_no_tokens")
+        )
+        return
+
+    validate_channel_items([{"acc": "", "tokens": list(tokens), "channel_id": c}
+                            for c in channels])
+
+
+def validate_channel_items(items):
+    """
+    Kiểm tra kênh theo cặp (acc, token, channel_id):
+    mỗi kênh được kiểm đúng bằng token của acc sở hữu, kết quả hiển thị tên acc.
+
+    Args:
+        items: [{"acc": str, "tokens": list[str], "channel_id": str}, ...]
+    """
+    try:
+        from discord.channel_validator import validate_channel
+    except ImportError:
+        messagebox.showerror(
+            language.t("common.error_title"),
+            language.t("main_page.validator_module_missing", "discord.channel_validator")
+        )
+        return
+
+    items = [i for i in (items or [])
+             if isinstance(i, dict) and str(i.get("channel_id") or "").strip()]
+
+    if not items:
+        messagebox.showwarning(
+            language.t("common.warning_title"),
+            language.t("main_page.channel_validator_no_channels")
         )
         return
 
@@ -342,7 +374,7 @@ def validate_channels_widget(txt_channels_widget, txt_tokens_widget):
 
     lbl_progress = tk.Label(
         top_inner,
-        text=language.t("main_page.channel_validator_checking", len(channels)),
+        text=language.t("main_page.channel_validator_checking", len(items)),
         bg=t["bg_panel"],
         fg=t["accent"],
         font=FONT_BODY_BOLD
@@ -373,14 +405,17 @@ def validate_channels_widget(txt_channels_widget, txt_tokens_widget):
     scrollbar.pack(side="right", fill="y")
 
     result_queue = queue.Queue()
-    progress = {"checked": 0, "total": len(channels)}
+    progress = {"checked": 0, "total": len(items)}
 
     def worker():
-        for ch_id in channels:
+        for item in items:
+            ch_id = str(item.get("channel_id") or "").strip()
+            acc_name = str(item.get("acc") or "")
             try:
-                res = validate_channel(ch_id, tokens)
+                res = validate_channel(ch_id, list(item.get("tokens") or []))
             except Exception as e:
                 res = {"valid": False, "id": ch_id, "error": str(e)}
+            res["acc"] = acc_name
             result_queue.put(res)
         result_queue.put(None)
 
@@ -433,6 +468,16 @@ def validate_channels_widget(txt_channels_widget, txt_tokens_widget):
 
         top_row = tk.Frame(frame_ch, bg=t["bg_input"])
         top_row.pack(fill="x", pady=(0, 6))
+
+        acc_name = str(result.get("acc") or "")
+        if acc_name:
+            tk.Label(
+                top_row,
+                text=f"{acc_name} →",
+                bg=t["bg_input"],
+                fg=t["accent"],
+                font=FONT_BODY_BOLD
+            ).pack(side="left")
 
         tk.Label(
             top_row,
@@ -542,17 +587,19 @@ def validate_channels_widget(txt_channels_widget, txt_tokens_widget):
     validator_window.after(100, poll)
 
 
-def create_main_page(root):
+def create_main_page(root, on_profile_changed=None):
     """
     Tạo trang chính với bố cục 2 cột (Cấu hình chạy / Live Log Terminal)
-    
+
     Args:
         root: Root window
-    
+        on_profile_changed: callback khi đổi/sửa profile ở panel trái
+
     Returns:
-        tuple: (frame_main_page, frame_content, txt_tokens, txt_channels, 
+        tuple: (frame_main_page, frame_content, txt_tokens, txt_channels,
                 txt_messages, entry_min, entry_max, lbl_status, log_area,
-                btn_start, btn_stop, btn_validate, btn_validate_channels)
+                btn_start, btn_stop, btn_validate,
+                profiles_ctx)
     """
     t = get_theme()
 
@@ -572,91 +619,33 @@ def create_main_page(root):
     right_pane.pack(side="right", fill="both", expand=True, padx=(10, 0))
 
     # =========================================================================
-    # LEFT PANE: CONFIGURATION & CONTROLS
+    # LEFT PANE: PROFILES + STATUS + CONTROLS
+    # Mỗi token là 1 profile riêng: token/channels/messages/cooldown riêng.
+    # Tab TÍNH NĂNG sẽ sửa features của profile đang chọn ở đây.
     # =========================================================================
-    card_inputs, inner_inputs = create_card_frame(left_pane, padx=16, pady=14)
-    card_inputs.pack(fill="both", expand=True)
+    from ui.profiles_panel import create_profiles_panel
+    profiles_ctx = create_profiles_panel(left_pane, on_profile_changed=on_profile_changed)
 
-    # 1. Tokens
-    tk.Label(
-        inner_inputs,
-        text=language.t("main_page.tokens_label"),
-        bg=t["bg_panel"],
-        fg=t["text_primary"],
-        font=FONT_BODY_BOLD
-    ).pack(anchor="w")
+    # Giữ các widget cũ dưới dạng ẩn để main.pyw không vỡ (start_trigger mới không dùng tới)
+    hidden_holder = tk.Frame(left_pane)
+    try:
+        from utils.theme import create_styled_text as _mk_text, create_styled_entry as _mk_entry
+        _, txt_tokens = _mk_text(hidden_holder, height=1)
+        _, txt_channels = _mk_text(hidden_holder, height=1)
+        _, txt_messages = _mk_text(hidden_holder, height=1)
+        _, entry_min = _mk_entry(hidden_holder, width=8)
+        _, entry_max = _mk_entry(hidden_holder, width=8)
+        entry_min.insert(0, "60")
+        entry_max.insert(0, "90")
+    except Exception:
+        txt_tokens = txt_channels = txt_messages = entry_min = entry_max = None
+    try:
+        hidden_holder.pack_forget()
+    except Exception:
+        pass
 
-    _, txt_tokens = create_styled_text(inner_inputs, height=4)
-    txt_tokens.master.pack(fill="x", pady=(4, 10))
-    txt_tokens.insert("1.0", "\n".join(config_data.get("tokens", [])))
-
-    # 2. Channels
-    ch_header = tk.Frame(inner_inputs, bg=t["bg_panel"])
-    ch_header.pack(fill="x")
-
-    tk.Label(
-        ch_header,
-        text=language.t("main_page.channels_label"),
-        bg=t["bg_panel"],
-        fg=t["text_primary"],
-        font=FONT_BODY_BOLD
-    ).pack(side="left")
-
-    tk.Label(
-        inner_inputs,
-        text=language.t("main_page.channels_tip"),
-        bg=t["bg_panel"],
-        fg=t["text_muted"],
-        font=FONT_CAPTION,
-        justify="left",
-        anchor="w",
-        wraplength=520
-    ).pack(fill="x", pady=(2, 0))
-
-    _, txt_channels = create_styled_text(inner_inputs, height=3)
-    txt_channels.master.pack(fill="x", pady=(4, 10))
-    txt_channels.insert("1.0", "\n".join(config_data.get("channel_ids", [""])))
-
-    # 3. Cooldown
-    frame_time = tk.Frame(inner_inputs, bg=t["bg_panel"])
-    frame_time.pack(fill="x", pady=(0, 10))
-
-    tk.Label(
-        frame_time,
-        text=language.t("main_page.cooldown_min"),
-        bg=t["bg_panel"],
-        fg=t["text_secondary"],
-        font=FONT_BODY
-    ).grid(row=0, column=0, sticky="w")
-
-    _, entry_min = create_styled_entry(frame_time, width=8)
-    entry_min.master.grid(row=0, column=1, padx=(6, 20), sticky="w")
-    entry_min.insert(0, str(config_data.get("cooldown_min", 60)))
-
-    tk.Label(
-        frame_time,
-        text=language.t("main_page.cooldown_max"),
-        bg=t["bg_panel"],
-        fg=t["text_secondary"],
-        font=FONT_BODY
-    ).grid(row=0, column=2, sticky="w")
-
-    _, entry_max = create_styled_entry(frame_time, width=8)
-    entry_max.master.grid(row=0, column=3, padx=(6, 0), sticky="w")
-    entry_max.insert(0, str(config_data.get("cooldown_max", 90)))
-
-    # 4. Messages
-    tk.Label(
-        inner_inputs,
-        text=language.t("main_page.messages_label"),
-        bg=t["bg_panel"],
-        fg=t["text_primary"],
-        font=FONT_BODY_BOLD
-    ).pack(anchor="w")
-
-    _, txt_messages = create_styled_text(inner_inputs, height=4)
-    txt_messages.master.pack(fill="x", pady=(4, 12))
-    txt_messages.insert("1.0", "\n".join(config_data.get("custom_message", ["Hello"])))
+    status_holder, inner_inputs = create_card_frame(left_pane, padx=16, pady=14)
+    status_holder.pack(fill="x", pady=(10, 0))
 
     # 5. Status Banner
     status_card = tk.Frame(
@@ -682,25 +671,32 @@ def create_main_page(root):
     frame_btn = tk.Frame(inner_inputs, bg=t["bg_panel"])
     frame_btn.pack(fill="x")
 
+    # Nút KIỂM TRA gộp (menu dropdown) thay cho 2 nút dài dễ bấm nhầm cạnh BẬT/DỪNG:
+    # main.pyw sẽ nối lệnh kiểm token/kênh vào 2 mục của btn_validate.menu
+    def _post_check_menu():
+        try:
+            check_menu.tk_popup(
+                btn_validate.winfo_rootx(),
+                btn_validate.winfo_rooty() + btn_validate.winfo_height())
+        except Exception:
+            pass
+
     btn_validate = create_styled_button(
         frame_btn,
-        text=language.t("main_page.btn_validate"),
-        command=lambda: None,
+        text=language.t("main_page.btn_check_menu"),
+        command=_post_check_menu,
         variant="secondary",
         padx=10,
         pady=7
     )
     btn_validate.grid(row=0, column=0, padx=(0, 5), pady=2, sticky="ew")
 
-    btn_validate_channels = create_styled_button(
-        frame_btn,
-        text=language.t("main_page.btn_validate_channels"),
-        command=lambda: None,
-        variant="secondary",
-        padx=10,
-        pady=7
-    )
-    btn_validate_channels.grid(row=0, column=1, padx=(0, 5), pady=2, sticky="ew")
+    check_menu = tk.Menu(btn_validate, tearoff=0)
+    check_menu.add_command(label=language.t("main_page.btn_validate"),
+                           command=lambda: None)
+    check_menu.add_command(label=language.t("main_page.btn_validate_channels"),
+                           command=lambda: None)
+    btn_validate.menu = check_menu  # main.pyw nối 2 lệnh kiểm tra vào đây
 
     btn_start = create_styled_button(
         frame_btn,
@@ -710,7 +706,7 @@ def create_main_page(root):
         padx=12,
         pady=7
     )
-    btn_start.grid(row=0, column=2, padx=(0, 5), pady=2, sticky="ew")
+    btn_start.grid(row=0, column=1, padx=(0, 5), pady=2, sticky="ew")
 
     btn_stop = create_styled_button(
         frame_btn,
@@ -720,12 +716,11 @@ def create_main_page(root):
         padx=12,
         pady=7
     )
-    btn_stop.grid(row=0, column=3, pady=2, sticky="ew")
+    btn_stop.grid(row=0, column=2, pady=2, sticky="ew")
 
     frame_btn.grid_columnconfigure(0, weight=1)
     frame_btn.grid_columnconfigure(1, weight=1)
     frame_btn.grid_columnconfigure(2, weight=1)
-    frame_btn.grid_columnconfigure(3, weight=1)
 
     # =========================================================================
     # RIGHT PANE: LIVE TERMINAL LOG
@@ -775,5 +770,6 @@ def create_main_page(root):
     return (
         frame_main_page, frame_content, txt_tokens, txt_channels,
         txt_messages, entry_min, entry_max, lbl_status, log_area,
-        btn_start, btn_stop, btn_validate, btn_validate_channels
+        btn_start, btn_stop, btn_validate,
+        profiles_ctx
     )

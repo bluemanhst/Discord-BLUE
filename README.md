@@ -2,7 +2,6 @@
 
 🌐 **Đọc bằng ngôn ngữ khác / Read in other languages:**
 - [🇬🇧 English](docs/README.en.md)
-- [🇨🇳 中文](docs/README.zh.md)
 
 > ⚠️ **LƯU Ý SỬ DỤNG & TUÂN THỦ ĐIỀU KHOẢN (nên đọc trước khi dùng)**
 > * Dự án được phát hành cho mục đích **học tập, nghiên cứu kỹ thuật và kiểm thử tự động hóa**.
@@ -61,7 +60,7 @@ Bạn có thể tải file `.exe` sử dụng trực tiếp mà không cần cà
 
 ### 🎨 7. Tùy biến giao diện & Cài đặt hệ thống
 * **3 Giao diện tùy chọn**: *Dragon Ball* (mặc định), *Discord*, *Dark Professional*.
-* **Đa ngôn ngữ**: Hỗ trợ đầy đủ Tiếng Việt, Tiếng Anh (English) và Tiếng Trung (中文).
+* **Đa ngôn ngữ**: Hỗ trợ đầy đủ Tiếng Việt và Tiếng Anh (English).
 * **System Tray**: Thu nhỏ ứng dụng xuống khay hệ thống góc màn hình khi bấm nút đóng (X).
 * **Khởi động cùng Windows**: Tùy chọn tự động chạy tool khi bật máy tính.
 * **Âm thanh thông báo**: Phát tiếng chuông khi gửi thành công, khi gặp lỗi hoặc khi dừng tool.

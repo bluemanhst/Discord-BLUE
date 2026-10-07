@@ -19,7 +19,7 @@ SCHEDULE_CHECK_INTERVAL = 60
 # ===== HÀM CHẠY TÀI KHOẢN ĐỘC LẬP (Multi-threading) =====
 def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown_max, 
                       messages, log_widget, features, bot_running_ref,
-                      run_id=None, generation_ref=None):
+                      run_id=None, generation_ref=None, profile_name=None, channels=None):
     """
     Chạy bot cho TỪNG tài khoản Discord riêng biệt
     Mỗi tài khoản chạy trong thread riêng để không ảnh hưởng nhau
@@ -30,6 +30,7 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
         channel_ids (list): Danh sách channel ID để gửi tin
         cooldown_min (int): Thời gian chờ tối thiểu (giây)
         cooldown_max (int): Thời gian chờ tối đa (giây)
+        channels (list|None): MỚI - [{"id", "cd_min", "cd_max", "messages"}]: CD + chat riêng từng kênh (messages rỗng -> dùng bộ mặc định của profile).
         messages (list): Danh sách tin nhắn để gửi
         log_widget: Widget log (hoặc ThreadSafeLog) để hiển thị hoạt động
         features (dict): Các tính năng bật/tắt
@@ -42,8 +43,11 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
         "Content-Type": "application/json"
     }
 
-    # Tên hiển thị ngắn gọn cho token (ẩn phần giữa)
-    short_token = f"{token[:4]}...{token[-4:]}" if len(token) > 10 else f"Acc {account_index}"
+    # Tên hiển thị ngắn gọn cho token (ưu tiên tên profile riêng)
+    if profile_name and str(profile_name).strip():
+        short_token = str(profile_name).strip()
+    else:
+        short_token = f"{token[:4]}...{token[-4:]}" if len(token) > 10 else f"Acc {account_index}"
     
     # Account ID cho dashboard
     account_id = f"account_{account_index}"
@@ -69,6 +73,21 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
     # Tính năng Smart Templates (random hóa tin nhắn)
     smart_templates = features.get("smart_templates", False)
 
+    # Bộ tin nhắn: kênh không có chat riêng -> dùng bộ mặc định của profile
+    default_messages = [m for m in (messages or []) if str(m).strip()]
+    if channels:
+        eff_channels = []
+        for c in channels:
+            if not isinstance(c, dict):
+                continue
+            own = [m for m in (c.get("messages") or []) if str(m).strip()]
+            eff = dict(c)
+            eff["messages"] = own or default_messages
+            if eff["messages"]:
+                eff_channels.append(eff)
+    else:
+        eff_channels = None
+
     # Bộ đếm phục vụ tính năng Nghỉ dài định kỳ
     sent_count = 0
     next_break_at = random.randint(break_after_min, break_after_max) if auto_break else None
@@ -90,17 +109,34 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
             continue
 
         # Không có kênh hoặc không có nội dung tin nhắn -> không thể gửi gì
-        if not channel_ids or not messages:
+        if not channel_ids or not (eff_channels or default_messages):
             log_widget.insert(tk.END, language.t("log_messages.no_target", short_token), "fail")
             log_widget.see(tk.END)
             break
 
-        # Random chọn 1 kênh từ danh sách để gửi tin
-        channel_id = random.choice(channel_ids)
+        # Random chọn 1 kênh từ danh sách để gửi tin (CD riêng theo từng kênh)
+        if eff_channels:
+            ch = random.choice(eff_channels)
+            channel_id = str(ch.get("id") or "").strip()
+            if not channel_id:
+                continue
+            try:
+                ch_cd_min = max(0, int(ch.get("cd_min", cooldown_min)))
+                ch_cd_max = max(0, int(ch.get("cd_max", cooldown_max)))
+            except (TypeError, ValueError):
+                ch_cd_min, ch_cd_max = cooldown_min, cooldown_max
+            if ch_cd_min > ch_cd_max:
+                ch_cd_min, ch_cd_max = ch_cd_max, ch_cd_min
+            # Ưu tiên chat riêng của kênh (eff đã fallback về bộ mặc định)
+            pool = ch.get("messages") or default_messages
+        else:
+            channel_id = random.choice(channel_ids)
+            ch_cd_min, ch_cd_max = cooldown_min, cooldown_max
+            pool = default_messages
         url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
 
-        # Random chọn 1 tin nhắn từ danh sách
-        msg = random.choice(messages)
+        # Random chọn 1 tin nhắn (tin đa dòng giữ nguyên \n - Discord hỗ trợ sẵn)
+        msg = random.choice(pool)
         
         # Tính năng Smart Templates: Xử lý random hóa
         if smart_templates:
@@ -129,7 +165,8 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
                 # Gửi thành công
                 log_widget.insert(
                     tk.END,
-                    language.t("log_messages.success", short_token, channel_id, msg),
+                    language.t("log_messages.success", short_token, channel_id,
+                               msg.replace("\n", " ↵ ")),
                     "success")
                 sent_count += 1
                 notify_sound("success")
@@ -217,8 +254,8 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
             next_break_at = random.randint(break_after_min, break_after_max)
             continue
 
-        # Tính thời gian chờ ngẫu nhiên trước khi gửi tin tiếp theo
-        delay = random.randint(int(cooldown_min), int(cooldown_max))
+        # Tính thời gian chờ ngẫu nhiên trước khi gửi tin tiếp theo (theo kênh vừa chọn)
+        delay = random.randint(ch_cd_min, ch_cd_max)
         log_widget.insert(tk.END, language.t("log_messages.waiting", short_token, delay), "wait")
         log_widget.see(tk.END)
 

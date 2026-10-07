@@ -126,6 +126,19 @@ def load_config():
         if key != "features":
             data.setdefault(key, value)
 
+    # Chuẩn hoá profiles[] riêng cho từng token (auto migrate từ tokens[] cũ)
+    try:
+        from profiles import ensure_profiles, normalize_profile, default_profile
+        fallback_profile = default_profile()
+        raw_profiles = data.get("profiles")
+        if isinstance(raw_profiles, list) and raw_profiles:
+            data["profiles"] = [normalize_profile(p, index=i, fallback=fallback_profile)
+                                for i, p in enumerate(raw_profiles, start=1)]
+        else:
+            data["profiles"] = ensure_profiles(data)
+    except Exception:
+        data.setdefault("profiles", [])
+
     return data
 
 
@@ -196,6 +209,23 @@ def validate_config(raw_config):
             data["features"][low_key], data["features"][high_key] = \
                 data["features"][high_key], data["features"][low_key]
             warnings.append(f"{low_key} lớn hơn {high_key} -> đã tự đổi lại")
+
+    # ----- profiles[] riêng từng token -----
+    try:
+        from profiles import ensure_profiles, normalize_profile, default_profile
+        fallback_profile = default_profile()
+        raw_profiles = raw_config.get("profiles")
+        if not isinstance(raw_profiles, list) or not raw_profiles:
+            data["profiles"] = ensure_profiles(data)
+            warnings.append("Chưa có profiles[] -> đã tự tạo từ tokens[] cũ")
+        else:
+            data["profiles"] = [normalize_profile(p, index=i, fallback=fallback_profile)
+                                for i, p in enumerate(raw_profiles, start=1)]
+            if not any(str(p.get("token") or "").strip() for p in data["profiles"]):
+                warnings.append("Không có token hợp lệ trong profiles[]")
+    except Exception as exc:
+        data["profiles"] = ensure_profiles(data)
+        warnings.append(f"Profiles lỗi -> đã tạo lại mặc định ({exc})")
 
     return data, warnings
 

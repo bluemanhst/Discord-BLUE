@@ -60,7 +60,7 @@ def _flatten(d, prefix=""):
 
 def check_languages():
     lang_dir = os.path.join(ROOT, "languages")
-    codes = ["vietnamese", "english", "chinese"]
+    codes = ["vietnamese", "english"]
     data = {}
     for code in codes:
         path = os.path.join(lang_dir, f"{code}.json")
@@ -89,14 +89,18 @@ def check_languages():
             pat = r"language\s*\.\s*t\(\s*[\"']([A-Za-z0-9_\.]+)[\"']"
             for m in re.finditer(pat, src):
                 key = m.group(1)
-                if "." in key:
-                    used.add(key)
+                if "." not in key:
+                    continue
+                # t("prefix_" + x) la key dong -> chi la tien to, khong phai key that
+                if src[m.end():m.end() + 8].lstrip().startswith("+"):
+                    continue
+                used.add(key)
     missing_vi = sorted(k for k in used if k not in data["vietnamese"])
     if missing_vi:
         fail(f"Key dung trong code nhung thieu trong VI ({len(missing_vi)}): {missing_vi[:10]}")
     else:
         ok(f"Key ngon ngu trong code deu co trong VI ({len(used)} key)")
-    for code in ("english", "chinese"):
+    for code in ("english",):
         missing = sorted(k for k in data["vietnamese"] if k not in data[code])
         if missing:
             fail(f"languages/{code}.json thieu {len(missing)} key so voi VI: {missing[:10]}")
@@ -106,14 +110,14 @@ def check_languages():
     mismatch = []
     for key, vi_text in data["vietnamese"].items():
         vi_ph = sorted(ph.findall(vi_text))
-        for code in ("english", "chinese"):
+        for code in ("english",):
             if sorted(ph.findall(data[code].get(key, ""))) != vi_ph:
                 mismatch.append(key)
                 break
     if mismatch:
         fail(f"Placeholder lech giua cac ngon ngu ({len(mismatch)}): {mismatch[:10]}")
     else:
-        ok("Placeholder {n} khop nhau giua 3 ngon ngu")
+        ok("Placeholder {n} khop nhau giua cac ngon ngu")
 def check_config_sample():
     sys.path.insert(0, ROOT)
     try:
@@ -205,8 +209,11 @@ def check_unused_language_keys():
         fail(f"Khong doc duoc languages/vietnamese.json: {e}")
         return
     src = "\n".join(_read_all_sources().values())
+    # t("prefix_" + x) -> key dong, tinh ca cac key bat dau bang prefix do
+    dyn_prefixes = re.findall(r'language\s*\.\s*t\(\s*["\']([A-Za-z0-9_.]+_)["\']\s*\+', src)
     unused = [k for k in sorted(keys)
-              if not re.search(r'["\']' + re.escape(k) + r'["\']', src)]
+              if not re.search(r'["\']' + re.escape(k) + r'["\']', src)
+              and not any(k.startswith(p) for p in dyn_prefixes)]
     if unused:
         fail(f"Key ngon ngu khai bao nhung KHONG dung trong code ({len(unused)}): "
              + ", ".join(unused[:10]))

@@ -13,8 +13,7 @@ DEFAULT_LANGUAGE = "vietnamese"
 # ===== DANH SÁCH NGÔN NGỮ HỖ TRỢ =====
 SUPPORTED_LANGUAGES = {
     "vietnamese": "Tiếng Việt",
-    "english": "English",
-    "chinese": "中文"
+    "english": "English"
 }
 
 # ===== BIẾN TOÀN CỤC =====
@@ -27,7 +26,7 @@ def load_language(language_code):
     Load file ngôn ngữ từ JSON
     
     Args:
-        language_code (str): Mã ngôn ngữ (vietnamese, english, chinese)
+        language_code (str): Mã ngôn ngữ (vietnamese, english)
     
     Returns:
         dict: Dữ liệu dịch hoặc None nếu lỗi
@@ -60,7 +59,11 @@ def get_current_language():
     if _current_language is None:
         # Lấy từ config, nếu không có thì dùng mặc định
         _current_language = config_data.get("language", DEFAULT_LANGUAGE)
-    
+
+    # Code trong config không còn được hỗ trợ (vd: "chinese" đã bị gỡ) -> về mặc định
+    if _current_language not in SUPPORTED_LANGUAGES:
+        _current_language = DEFAULT_LANGUAGE
+
     return _current_language
 
 

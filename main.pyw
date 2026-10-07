@@ -39,7 +39,8 @@ from utils.constants import WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WIDTH, MIN_HEIGHT, 
 from discord.bot import run_single_account
 from discord.dashboard import dashboard
 from ui.navigation import create_navigation_bar
-from ui.main_page import create_main_page, validate_tokens_widget, validate_channels_widget
+from ui.main_page import (create_main_page, validate_tokens_widget, validate_channels_widget,
+                          validate_token_list, validate_channel_items)
 from ui.features_page import create_features_page
 from ui.config_page import create_config_page
 from ui.theme_page import create_theme_page
@@ -63,8 +64,25 @@ tray_manager = TrayManager(
 )
 
 # ===== HÀM CHUYỂN TRANG =====
+def _persist_features_and_config():
+    """Ghi tab Tính năng vào profile đang chọn rồi lưu config.json."""
+    try:
+        profiles_ctx["save_current"]()
+    except Exception:
+        pass
+    try:
+        if hasattr(frame_features_page, "save_to_active_profile"):
+            frame_features_page.save_to_active_profile()
+    except Exception:
+        pass
+    try:
+        save_config(config_data)
+    except Exception:
+        pass
+
 def show_main_page():
     """Hiển thị trang chính"""
+    _persist_features_and_config()
     frame_features_page.pack_forget()
     frame_config_page.pack_forget()
     frame_theme_page.pack_forget()
@@ -74,6 +92,16 @@ def show_main_page():
 
 def show_features_page():
     """Hiển thị trang tính năng"""
+    try:
+        profiles_ctx["save_current"]()
+    except Exception:
+        pass
+    try:
+        if hasattr(frame_features_page, "reload_from_active_profile"):
+            frame_features_page.reload_from_active_profile()
+        save_config(config_data)
+    except Exception:
+        pass
     frame_main_page.pack_forget()
     frame_config_page.pack_forget()
     frame_theme_page.pack_forget()
@@ -83,6 +111,10 @@ def show_features_page():
 
 def show_config_page():
     """Hiển thị trang cấu hình"""
+    try:
+        save_config(config_data)
+    except Exception:
+        pass
     frame_main_page.pack_forget()
     frame_features_page.pack_forget()
     frame_theme_page.pack_forget()
@@ -92,6 +124,10 @@ def show_config_page():
 
 def show_theme_page():
     """Hiển thị trang theme"""
+    try:
+        save_config(config_data)
+    except Exception:
+        pass
     frame_main_page.pack_forget()
     frame_features_page.pack_forget()
     frame_config_page.pack_forget()
@@ -101,6 +137,10 @@ def show_theme_page():
 
 def show_dashboard_page():
     """Hiển thị trang dashboard"""
+    try:
+        save_config(config_data)
+    except Exception:
+        pass
     frame_main_page.pack_forget()
     frame_features_page.pack_forget()
     frame_config_page.pack_forget()
@@ -110,6 +150,10 @@ def show_dashboard_page():
 
 def show_settings_page():
     """Hiển thị trang cài đặt"""
+    try:
+        save_config(config_data)
+    except Exception:
+        pass
     frame_main_page.pack_forget()
     frame_features_page.pack_forget()
     frame_config_page.pack_forget()
@@ -119,104 +163,65 @@ def show_settings_page():
 
 # ===== HÀM BẬT TOOL =====
 def start_trigger():
-    """Bắt đầu chạy tool"""
+    """Bắt đầu chạy tool - mỗi profile/token chạy settings riêng."""
     global bot_running, bot_generation, account_threads
     warn_title = language.t("common.warning_title")
     if bot_running[0]:
         messagebox.showinfo(language.t("common.info_title"), language.t("main_page.info_running"))
         return
 
-    raw_tokens = txt_tokens.get("1.0", tk.END).strip().split('\n')
-    tokens = [t.strip() for t in raw_tokens if t.strip()]
-
-    if not tokens:
+    try:
+        from profiles import ensure_profiles
+        profiles_ctx["save_current"]()
+        if hasattr(frame_features_page, "save_to_active_profile"):
+            frame_features_page.save_to_active_profile()
+        profiles = ensure_profiles(config_data)
+    except Exception:
+        profiles = config_data.get("profiles", [])
+    active_profiles = [p for p in profiles
+                       if p.get("enabled", True) and str(p.get("token") or "").strip()]
+    if not active_profiles:
         messagebox.showwarning(warn_title, language.t("main_page.warning_no_tokens"))
         return
 
-    raw_channels = txt_channels.get("1.0", tk.END).strip().split('\n')
-    channel_ids = [c.strip() for c in raw_channels if c.strip()]
+    def _valid_channels(p):
+        """Chỉ tính kênh có id thật; id rỗng ('') do normalize bù -> coi như thiếu."""
+        ids = [c for c in (p.get("channels") or []) if str(c.get("id") or "").strip()]
+        if ids:
+            return ids
+        return [c for c in (p.get("channel_ids") or []) if str(c or "").strip()]
 
-    if not channel_ids:
+    bad = [str(p.get("name") or "Acc") for p in active_profiles
+           if not _valid_channels(p) or not p.get("messages")]
+    if bad:
         messagebox.showwarning(warn_title, language.t("main_page.warning_no_channels"))
         return
 
-    try:
-        cooldown_min = int(entry_min.get().strip() or 60)
-        cooldown_max = int(entry_max.get().strip() or 90)
-        delete_delay_ms = int(entry_delete_delay.get().strip() or 0)
-        typing_min_sec = int(entry_typing_min.get().strip() or 2)
-        typing_max_sec = int(entry_typing_max.get().strip() or 5)
-        break_after_min = int(entry_break_after_min.get().strip() or 15)
-        break_after_max = int(entry_break_after_max.get().strip() or 25)
-        break_duration_min = int(entry_break_duration_min.get().strip() or 10)
-        break_duration_max = int(entry_break_duration_max.get().strip() or 30)
-        
-        # Validate schedule time format
-        schedule_start = entry_schedule_start.get().strip()
-        schedule_end = entry_schedule_end.get().strip()
+    for prof in active_profiles:
         try:
-            datetime.strptime(schedule_start, "%H:%M")
-            datetime.strptime(schedule_end, "%H:%M")
-        except ValueError:
-            messagebox.showwarning(warn_title, language.t("main_page.warning_invalid_format"))
-            return
-        
-        if min(cooldown_min, cooldown_max, delete_delay_ms, typing_min_sec, typing_max_sec,
-               break_after_min, break_after_max, break_duration_min, break_duration_max) < 0:
-            raise ValueError
-        if cooldown_min > cooldown_max:
+            prof["cooldown_min"] = max(0, int(prof.get("cooldown_min", 60)))
+            prof["cooldown_max"] = max(0, int(prof.get("cooldown_max", 90)))
+        except (TypeError, ValueError):
+            prof["cooldown_min"], prof["cooldown_max"] = 60, 90
+        if prof["cooldown_min"] > prof["cooldown_max"]:
             messagebox.showwarning(warn_title, language.t("main_page.warning_cooldown_range"))
             return
-        if typing_min_sec > typing_max_sec:
-            messagebox.showwarning(warn_title, language.t("main_page.warning_typing_range"))
-            return
-        if break_after_min > break_after_max:
-            messagebox.showwarning(warn_title, language.t("main_page.warning_break_range"))
-            return
-        if break_duration_min > break_duration_max:
-            messagebox.showwarning(warn_title, language.t("main_page.warning_break_duration_range"))
-            return
-    except ValueError:
-        messagebox.showwarning(warn_title, language.t("main_page.warning_invalid_numbers"))
-        return
 
-    # Chỉ cập nhật những gì người dùng nhập trên UI và GIỮ NGUYÊN các key khác
-    # (language, current_theme...) - trước đây ghi đè cả file nên bị mất cài đặt
-    custom_message = [m.strip() for m in
-                      txt_messages.get("1.0", tk.END).strip().split('\n') if m.strip()]
-    if not custom_message:
-        custom_message = ["Hello"]
+    # Đồng bộ channel_ids từ fields channels mới (giữ tương thích validator + cấu hình cũ)
+    for prof in active_profiles:
+        if prof.get("channels"):
+            prof["channel_ids"] = [c["id"] for c in prof["channels"]]
 
-    new_features = {
-        "auto_delete": var_auto_delete.get(),
-        "delete_delay_ms": delete_delay_ms,
-        "auto_typing": var_auto_typing.get(),
-        "typing_min_sec": typing_min_sec,
-        "typing_max_sec": typing_max_sec,
-        "auto_break": var_auto_break.get(),
-        "break_after_min": break_after_min,
-        "break_after_max": break_after_max,
-        "break_duration_min": break_duration_min,
-        "break_duration_max": break_duration_max,
-        "auto_stop_on_ban": var_auto_stop_ban.get(),
-        "schedule": var_schedule.get(),
-        "schedule_start": schedule_start,
-        "schedule_end": schedule_end,
-        "smart_templates": var_smart_templates.get(),
-        "sound_enabled": var_sound_enabled.get(),
-        "sound_error": var_sound_error.get(),
-        "sound_stop": var_sound_stop.get(),
-        "sound_success": var_sound_success.get(),
-        "tray_enabled": var_tray_enabled.get(),
-        "startup_enabled": var_startup_enabled.get()
-    }
-
-    config_data["tokens"] = tokens
-    config_data["channel_ids"] = channel_ids
-    config_data["cooldown_min"] = cooldown_min
-    config_data["cooldown_max"] = cooldown_max
-    config_data["custom_message"] = custom_message
-    config_data.setdefault("features", {}).update(new_features)
+    # Giữ tương thích file cũ: sync profile đầu tiên về các key global
+    try:
+        first = active_profiles[0]
+        config_data["tokens"] = [str(p.get("token") or "").strip() for p in active_profiles]
+        config_data["channel_ids"] = list(first.get("channels") or first.get("channel_ids", []))
+        config_data["cooldown_min"] = int(first.get("cooldown_min", 60))
+        config_data["cooldown_max"] = int(first.get("cooldown_max", 90))
+        config_data["custom_message"] = list(first.get("messages", ["Hello"]))
+    except Exception:
+        pass
     save_config(config_data)
     new_config = config_data
 
@@ -232,35 +237,51 @@ def start_trigger():
     bot_generation[0] += 1  # Vô hiệu hoá thread còn sót của lượt chạy trước
     current_run = bot_generation[0]
     account_threads = []
-    
+
     # Bắt đầu theo dõi dashboard
     dashboard.start_tracking()
 
+    total_channels = sum(len(p.get("channel_ids", [])) for p in active_profiles)
     log_area.insert(tk.END, "==================================================\n", "system")
-    log_area.insert(tk.END, language.t("log_messages.system_start", len(tokens), len(channel_ids)), "system")
+    log_area.insert(tk.END, language.t("log_messages.system_start", len(active_profiles), total_channels), "system")
     # Dòng tóm tắt trạng thái các tính năng (dịch theo ngôn ngữ đang chọn)
     feature_status = {True: language.t("log_messages.on"), False: language.t("log_messages.off")}
+    first_feats = active_profiles[0].get("features", {})
+    first_schedule_start = str(first_feats.get("schedule_start", "09:00"))
+    first_schedule_end = str(first_feats.get("schedule_end", "17:00"))
     feature_lines = [
-        ("log_messages.feature_auto_delete", feature_status[new_config['features']['auto_delete']]),
-        ("log_messages.feature_auto_typing", feature_status[new_config['features']['auto_typing']]),
-        ("log_messages.feature_auto_break", feature_status[new_config['features']['auto_break']]),
-        ("log_messages.feature_auto_stop_ban", feature_status[new_config['features']['auto_stop_on_ban']]),
-        ("log_messages.feature_schedule", feature_status[new_config['features']['schedule']],
-         schedule_start, schedule_end),
+        ("log_messages.feature_auto_delete", feature_status[bool(first_feats.get("auto_delete", False))]),
+        ("log_messages.feature_auto_typing", feature_status[bool(first_feats.get("auto_typing", False))]),
+        ("log_messages.feature_auto_break", feature_status[bool(first_feats.get("auto_break", False))]),
+        ("log_messages.feature_auto_stop_ban", feature_status[bool(first_feats.get("auto_stop_on_ban", True))]),
+        ("log_messages.feature_schedule", feature_status[bool(first_feats.get("schedule", False))],
+         first_schedule_start, first_schedule_end),
         ("log_messages.feature_smart_templates",
-         feature_status[new_config['features']['smart_templates']])
+         feature_status[bool(first_feats.get("smart_templates", False))])
     ]
     for line_key, *line_args in feature_lines:
         log_area.insert(tk.END, language.t(line_key, *line_args), "system")
+    log_area.insert(tk.END, language.t("log_messages.profiles_running",
+                                       ", ".join(str(p.get("name", "Acc"))
+                                                for p in active_profiles)), "system")
     log_area.insert(tk.END, "==================================================\n", "system")
 
-    for index, current_token in enumerate(tokens, start=1):
+    for index, prof in enumerate(active_profiles, start=1):
+        ch_list = list(prof.get("channels") or [])
+        if not ch_list:
+            ch_list = [{"id": c, "cd_min": int(prof.get("cooldown_min", 60)),
+                        "cd_max": int(prof.get("cooldown_max", 90))}
+                       for c in prof.get("channel_ids", [])]
+
         t = threading.Thread(target=run_single_account, args=(
-            current_token, index, new_config["channel_ids"],
-            new_config["cooldown_min"], new_config["cooldown_max"],
-            new_config["custom_message"], log_proxy,
-            new_config["features"], bot_running
-        ), kwargs={"run_id": current_run, "generation_ref": bot_generation}, daemon=True)
+            str(prof.get("token") or "").strip(), index, list(prof.get("channel_ids", [])),
+            int(prof.get("cooldown_min", 60)), int(prof.get("cooldown_max", 90)),
+            list(prof.get("messages", ["Hello"])), log_proxy,
+            dict(prof.get("features", {})), bot_running
+        ), kwargs={"run_id": current_run, "generation_ref": bot_generation,
+            "channels": ch_list,
+
+                   "profile_name": str(prof.get("name") or f"Acc {index}")}, daemon=True)
         account_threads.append(t)
         t.start()
 
@@ -297,6 +318,7 @@ def show_window_from_tray():
 
 def quit_from_tray():
     """Thoát ứng dụng từ menu của icon khay hệ thống"""
+    _persist_features_and_config()
     stop_trigger()
     tray_manager.stop()
     root.destroy()
@@ -309,9 +331,27 @@ def pump_tray_commands():
 
 # ===== KHỞI TẠO ROOT WINDOW =====
 root = tk.Tk()
+root.withdraw()
 root.title(f"{language.t('app_name')} by bluemanhst")
 root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 root.minsize(MIN_WIDTH, MIN_HEIGHT)
+root.configure(bg=get_theme()["bg_app"])
+
+# ===== SPLASH SCREEN =====
+# Chỉ hiện splash trước, ẩn hẳn cửa sổ chính cho tới khi splash đóng xong
+from utils.splash_screen import show_splash_screen
+
+# Hiển thị splash screen (tự động đóng sau khi đạt 100%)
+_splash = show_splash_screen(root, None)
+import time
+if _splash is not None:
+    try:
+        while _splash.splash.winfo_exists():
+            root.update()
+            time.sleep(0.05)
+    except Exception:
+        pass
+
 root.configure(bg=get_theme()["bg_app"])
 
 # Áp dụng ttk styles đồng bộ
@@ -329,25 +369,77 @@ nav_bar = create_navigation_bar(root, show_main_page, show_features_page,
                                 show_config_page, show_theme_page, show_dashboard_page, show_settings_page)
 
 # ===== TẠO CÁC TRANG =====
-# Trang chính
-(frame_main_page, frame_content, txt_tokens, txt_channels, txt_messages, 
- entry_min, entry_max, lbl_status, log_area, btn_start, btn_stop, btn_validate, btn_validate_channels) = create_main_page(root)
+# Trang chính (kèm panel Profiles Master-Detail)
+def _on_profile_changed_from_panel():
+    try:
+        if "frame_features_page" in dir() and hasattr(frame_features_page, "reload_from_active_profile"):
+            frame_features_page.reload_from_active_profile()
+    except Exception:
+        pass
 
-# Gán command cho nút
-btn_validate.config(command=lambda: validate_tokens_widget(txt_tokens))
-btn_validate_channels.config(command=lambda: validate_channels_widget(txt_channels, txt_tokens))
+(frame_main_page, frame_content, txt_tokens, txt_channels, txt_messages,
+ entry_min, entry_max, lbl_status, log_area, btn_start, btn_stop, btn_validate,
+ profiles_ctx) = create_main_page(root, on_profile_changed=_on_profile_changed_from_panel)
+
+# Gán command cho nút: trang chính kiểm TẤT CẢ acc
+# (kiểm token/kênh của 1 acc riêng nằm trong panel Profiles)
+def _all_profiles():
+    try:
+        profiles_ctx["save_current"]()
+        from profiles import ensure_profiles
+        return ensure_profiles(config_data)
+    except Exception:
+        return [p for p in config_data.get("profiles", []) if isinstance(p, dict)]
+
+def _validate_all_tokens():
+    """Kiểm tra TẤT CẢ token của MỌI profile."""
+    tokens = [str(p.get("token") or "").strip() for p in _all_profiles()]
+    validate_token_list([t for t in tokens if t])
+
+def _validate_all_channels():
+    """Kiểm tra toàn bộ kênh của MỌI acc - kênh nào kiểm bằng token của acc đó."""
+    items = []
+    for prof in _all_profiles():
+        token = str(prof.get("token") or "").strip()
+        if not token:
+            continue  # acc thiếu token thì bỏ qua (không thể kiểm kênh)
+        name = str(prof.get("name") or "").strip()
+        chs = prof.get("channels") or [
+            {"id": c} for c in (prof.get("channel_ids") or []) if str(c).strip()]
+        for ch in chs:
+            if isinstance(ch, dict):
+                cid = str(ch.get("id") or "").strip()
+            else:
+                cid = str(ch or "").strip()
+            if cid:
+                items.append({"acc": name, "tokens": [token], "channel_id": cid})
+    validate_channel_items(items)
+
+# Nút KIỂM TRA gộp: nối 2 lệnh vào menu dropdown (entryconfig theo index)
+try:
+    btn_validate.menu.entryconfig(0, command=_validate_all_tokens)
+    btn_validate.menu.entryconfig(1, command=_validate_all_channels)
+except Exception:
+    btn_validate.config(command=_validate_all_tokens)
 btn_start.config(command=start_trigger)
 btn_stop.config(command=stop_trigger)
 
-# Trang tính năng
+# Trang tính năng (sửa features của profile đang chọn ở TRANG CHÍNH)
+def _active_profile_for_features():
+    try:
+        profiles_ctx["save_current"]()
+        return profiles_ctx["get_selected_profile"]()
+    except Exception:
+        return None
+
 (frame_features_page, var_auto_delete, entry_delete_delay,
  var_auto_typing, entry_typing_min, entry_typing_max,
- var_auto_break, entry_break_after_min, entry_break_after_max, 
+ var_auto_break, entry_break_after_min, entry_break_after_max,
  entry_break_duration_min, entry_break_duration_max,
  var_auto_stop_ban,
  var_schedule, entry_schedule_start, entry_schedule_end,
  var_smart_templates,
- var_sound_enabled, var_sound_error, var_sound_stop, var_sound_success) = create_features_page(root)
+ var_sound_enabled, var_sound_error, var_sound_stop, var_sound_success) = create_features_page(root, profile_provider=_active_profile_for_features)
 
 # Trang cấu hình
 frame_config_page = create_config_page(root)
@@ -376,6 +468,11 @@ if config_data.get("features", {}).get("tray_enabled"):
 
 # ===== HIỂN THỊ TRANG CHÍNH BAN ĐẦU =====
 show_main_page()
+
+# Chỉ show app sau khi build xong toàn bộ UI (chống cửa sổ trắng)
+root.deiconify()
+root.lift()
+root.focus_force()
 
 # ===== CHẠY ỨNG DỤNG =====
 root.mainloop()

@@ -232,5 +232,5 @@ def toggle_startup(var_startup):
             winreg.CloseKey(key)
 
     except Exception as e:
-        messagebox.showerror("Lỗi", f"{language.t('settings_page.startup_error')} {str(e)}")
+        messagebox.showerror(language.t("common.error_title"), f"{language.t('settings_page.startup_error')} {str(e)}")
         var_startup.set(config_data.get("features", {}).get("startup_enabled", False))

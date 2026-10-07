@@ -161,66 +161,52 @@ def _reset_run_state():
 
 
 _reset_run_state()
-_set(app_main.txt_tokens, "")
-_set(app_main.txt_channels, "123")
+
+
+def _mk_profile(token="tok1", chans=("123",), msgs=("hello",),
+                cd_min=60, cd_max=90, feats=None):
+    """Profile mau de test start_trigger (kien truc profiles thay txt_* an)."""
+    return {
+        "name": "Acc test", "enabled": True, "token": token,
+        "channel_ids": list(chans), "cooldown_min": cd_min,
+        "cooldown_max": cd_max, "messages": list(msgs),
+        "features": dict(feats or {}),
+    }
+
+
+def _set_profiles(profs):
+    # start_trigger doc profiles tu config_data (khong dung txt_tokens/txt_channels an nua)
+    app_main.config_data["profiles"] = copy.deepcopy(list(profs))
+
+
+_set_profiles([])
 app_main.start_trigger()
 check("thieu token -> canh bao + khong chay",
       app_main.bot_running[0] is False and any("Token" in str(w) for w in warnings_shown))
 
 _reset_run_state()
-_set(app_main.txt_tokens, "tok1")
-_set(app_main.txt_channels, "")
+_set_profiles([_mk_profile(chans=())])
 app_main.start_trigger()
 check("thieu channel -> canh bao + khong chay",
       app_main.bot_running[0] is False and any("Channel" in str(w) for w in warnings_shown))
 
 _reset_run_state()
-_set(app_main.txt_tokens, "tok1")
-_set(app_main.txt_channels, "123")
-_set(app_main.txt_messages, "hello")
-_set(app_main.entry_min, "90")
-_set(app_main.entry_max, "10")
-_set(app_main.entry_delete_delay, "0")
-_set(app_main.entry_typing_min, "2")
-_set(app_main.entry_typing_max, "5")
-_set(app_main.entry_break_after_min, "15")
-_set(app_main.entry_break_after_max, "25")
-_set(app_main.entry_break_duration_min, "10")
-_set(app_main.entry_break_duration_max, "30")
-_set(app_main.entry_schedule_start, "09:00")
-_set(app_main.entry_schedule_end, "17:00")
+_set_profiles([_mk_profile(cd_min=90, cd_max=10)])
 app_main.start_trigger()
-check("cooldown min>max -> canh bao + khong chay",
-      app_main.bot_running[0] is False and any("Cooldown" in str(w) for w in warnings_shown))
+n_run_bad_cd = len([c for c in calls if isinstance(c, tuple) and len(c) == 9])
+check("cooldown min>max -> tu swap va van chay duoc",
+      app_main.bot_running[0] is True and n_run_bad_cd == 1)
 
 _reset_run_state()
-_set(app_main.txt_tokens, "tok1")
-_set(app_main.txt_channels, "123")
-_set(app_main.txt_messages, "hello")
-_set(app_main.entry_min, "60")
-_set(app_main.entry_max, "90")
-_set(app_main.entry_typing_min, "9")
-_set(app_main.entry_typing_max, "2")
+_set_profiles([_mk_profile(feats={"typing_min_sec": 9, "typing_max_sec": 2})])
 app_main.start_trigger()
-check("typing min>max -> canh bao + khong chay",
-      app_main.bot_running[0] is False and len(warnings_shown) > 0)
+check("typing min>max -> normalize tu swap, van chay duoc",
+      app_main.bot_running[0] is True)
 
 # --- tiep: case chay thanh cong + nut DUNG ---
 _reset_run_state()
-_set(app_main.txt_tokens, "tok1\ntok2")
-_set(app_main.txt_channels, "111\n222")
-_set(app_main.txt_messages, "hello")
-_set(app_main.entry_min, "60")
-_set(app_main.entry_max, "90")
-_set(app_main.entry_delete_delay, "0")
-_set(app_main.entry_typing_min, "2")
-_set(app_main.entry_typing_max, "5")
-_set(app_main.entry_break_after_min, "15")
-_set(app_main.entry_break_after_max, "25")
-_set(app_main.entry_break_duration_min, "10")
-_set(app_main.entry_break_duration_max, "30")
-_set(app_main.entry_schedule_start, "00:00")
-_set(app_main.entry_schedule_end, "23:59")
+_set_profiles([_mk_profile(token="tok1", chans=("111",)),
+               _mk_profile(token="tok2", chans=("222",))])
 gen_before = app_main.bot_generation[0]
 app_main.start_trigger()
 n_run = len([c for c in calls if isinstance(c, tuple) and len(c) == 9])
@@ -236,7 +222,7 @@ app_main.stop_trigger()
 check("nut DUNG tat bot + tang generation",
       app_main.bot_running[0] is False and app_main.bot_generation[0] == gen_stop + 1)
 
-# --- 4. i18n: moi key dung trong code phai dich duoc o ca 3 ngon ngu ---
+# --- 4. i18n: moi key dung trong code phai dich duoc o ca 2 ngon ngu ---
 import json
 import re
 import language
@@ -270,13 +256,13 @@ _used_keys = [k for k in _vi_keys
               if re.search(r'["\']' + re.escape(k) + r'["\']', _src_all)]
 
 _untranslated = []
-for _code in ("vietnamese", "english", "chinese"):
+for _code in ("vietnamese", "english"):
     language.set_language(_code)
     for _key in _used_keys:
         if language.t(_key) == _key:
             _untranslated.append(f"{_code}:{_key}")
 
-check(f"moi key dung trong code deu dich duoc o ca 3 ngon ngu ({len(_used_keys)} key)",
+check(f"moi key dung trong code deu dich duoc o ca 2 ngon ngu ({len(_used_keys)} key)",
       not _untranslated, detail=str(_untranslated[:5]))
 language.set_language("vietnamese")
 

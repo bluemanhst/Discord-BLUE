@@ -2,7 +2,6 @@
 
 🌐 **Read in other languages:**
 - [🇻🇳 Tiếng Việt](README.md)
-- [🇨🇳 中文](README.zh.md)
 
 > ⚠️ **USAGE & TERMS COMPLIANCE NOTICE (please read before use)**
 > * This project is released for **educational, technical-research and automation-testing purposes**.
@@ -61,7 +60,7 @@ You can download the pre-compiled `.exe` file directly without needing to instal
 
 ### 🎨 7. UI Customization & System Settings
 * **3 Preset Themes**: *Dragon Ball* (Default), *Discord*, and *Dark Professional*.
-* **Multi-Language Support**: English, Vietnamese (Tiếng Việt), and Chinese (中文).
+* **Multi-Language Support**: English and Vietnamese (Tiếng Việt).
 * **System Tray**: Minimize the app to the Windows taskbar notification tray when closing.
 * **Startup with Windows**: Option to automatically start the tool when Windows boots up.
 * **Sound Notifications**: Audio cues on successful sends, errors, or tool stop events.
