@@ -145,6 +145,11 @@ class FakeThread:
     def join(self, *a, **k):
         return None
 
+    def is_alive(self):
+        # Worker that bai khong chay that trong test; join loop trong
+        # run_single_account van phai chay duoc.
+        return False
+
 
 def _set(widget, text):
     widget._text = text
@@ -157,6 +162,11 @@ def _reset_run_state():
     calls.clear()
     import threading as _th
     _th.Thread = FakeThread
+    # main.pyw dùng "import threading" + "threading.Thread(...)"
+    try:
+        app_main.threading.Thread = FakeThread
+    except Exception:
+        pass
     app_main.run_single_account = lambda *a, **k: calls.append(("run", a))
 
 
@@ -166,9 +176,12 @@ _reset_run_state()
 def _mk_profile(token="tok1", chans=("123",), msgs=("hello",),
                 cd_min=60, cd_max=90, feats=None):
     """Profile mau de test start_trigger (kien truc profiles thay txt_* an)."""
+    ch_list = [{"id": c, "cd_min": cd_min, "cd_max": cd_max, "messages": []}
+               for c in chans]
     return {
         "name": "Acc test", "enabled": True, "token": token,
-        "channel_ids": list(chans), "cooldown_min": cd_min,
+        "channel_ids": list(chans), "channels": ch_list,
+        "cooldown_min": cd_min,
         "cooldown_max": cd_max, "messages": list(msgs),
         "features": dict(feats or {}),
     }
@@ -176,7 +189,32 @@ def _mk_profile(token="tok1", chans=("123",), msgs=("hello",),
 
 def _set_profiles(profs):
     # start_trigger doc profiles tu config_data (khong dung txt_tokens/txt_channels an nua)
+    # + profiles_ctx["save_current"] trong mock UI doc widget rong -> ghi de token.
+    # Giu data test: tam vo hieu save_current + refresh trong lúc BAT.
     app_main.config_data["profiles"] = copy.deepcopy(list(profs))
+    try:
+        _ctx = app_main.profiles_ctx
+        _ctx["_test_save"] = _ctx.get("save_current")
+        _ctx["save_current"] = lambda: None
+        _feat = app_main.frame_features_page
+        if hasattr(_feat, "save_to_active_profile"):
+            _feat["_test_save_feat"] = _feat.save_to_active_profile
+            _feat.save_to_active_profile = lambda: None
+    except Exception:
+        pass
+
+
+def _restore_ctx():
+    try:
+        _ctx = app_main.profiles_ctx
+        if "_test_save" in _ctx:
+            _ctx["save_current"] = _ctx.pop("_test_save")
+        _feat = app_main.frame_features_page
+        if hasattr(_feat, "_test_save_feat"):
+            _feat.save_to_active_profile = _feat._test_save_feat
+            delattr(_feat, "_test_save_feat")
+    except Exception:
+        pass
 
 
 _set_profiles([])
@@ -221,6 +259,85 @@ gen_stop = app_main.bot_generation[0]
 app_main.stop_trigger()
 check("nut DUNG tat bot + tang generation",
       app_main.bot_running[0] is False and app_main.bot_generation[0] == gen_stop + 1)
+
+# --- 3b. chat markup parser (preview emoji + markdown) ---
+from utils.chat_markup import parse_markup
+
+segs = parse_markup(":FragmentSDSayenDripIV: :For: **Justice Bunny Set**")
+emo_names = [s["name"] for s in segs if s["type"] == "emoji_name"]
+bold_txt = [s.get("text", "") for s in segs if "bold" in (s.get("styles") or set())]
+check("markup: emoji :name: duoc tach (2 cai)",
+      emo_names == ["FragmentSDSayenDripIV", "For"])
+check("markup: **bold** duoc nhan dang",
+      any(b == "Justice Bunny Set" for b in bold_txt))
+
+segs2 = parse_markup("<a:wave:123456789012345678> <:heart:987654321098765432>")
+emo_ids = [s for s in segs2 if s["type"] == "emoji_id"]
+check("markup: emoji <:name:id> / <a:name:id> co ID + animated",
+      len(emo_ids) == 2 and emo_ids[0]["animated"] is True
+      and emo_ids[1]["animated"] is False
+      and emo_ids[0]["id"] == "123456789012345678"
+      and emo_ids[1]["name"] == "heart")
+
+segs3 = parse_markup("dong 1\ndong 2 `code` *it* ~~strike~~ __under__")
+check("markup: xuong hang + code/italic/strike/underline",
+      any(s["type"] == "newline" for s in segs3)
+      and any("code" in (s.get("styles") or set()) and s.get("text") == "code"
+              for s in segs3)
+      and any("italic" in (s.get("styles") or set()) and s.get("text") == "it"
+              for s in segs3)
+      and any("strike" in (s.get("styles") or set()) and s.get("text") == "strike"
+              for s in segs3)
+      and any("underline" in (s.get("styles") or set()) and s.get("text") == "under"
+              for s in segs3))
+
+# --- 3b2. resolve emoji shortcode -> <name:id> truoc khi gui ---
+from utils.chat_markup import resolve_emoji_shortcodes
+
+_MAP = {"emoji_11": {"id": "111111111111111111", "animated": False},
+        "wave": {"id": "222222222222222222", "animated": True}}
+check("resolve: :name: co trong map -> <:name:id>",
+      resolve_emoji_shortcodes(":emoji_11: :emoji_41:", _MAP)
+      == "<:emoji_11:111111111111111111> :emoji_41:")
+check("resolve: animated -> <a:name:id>",
+      resolve_emoji_shortcodes("hi :wave: !", _MAP)
+      == "hi <a:wave:222222222222222222> !")
+check("resolve: emoji da co ID giu nguyen (khong lam vo)",
+      resolve_emoji_shortcodes("<:emoji_11:999999999999999999>", _MAP)
+      == "<:emoji_11:999999999999999999>")
+check("resolve: map rong / text khac giu nguyen",
+      resolve_emoji_shortcodes(":emoji_11:", {}) == ":emoji_11:"
+      and resolve_emoji_shortcodes("**bold** ok", _MAP) == "**bold** ok")
+
+# --- 3c. regression: run_single_account that that NameError (5 bien thieu sau refactor) ---
+# Truoc day 5 bien (default_messages/schedule_*/smart_templates) bi mat khi
+# refactor song song -> thread chay that bi NameError ngay, bot khong gui gi.
+# Test goi ham THAT voi bot_running=[False] + FakeThread (khong chay worker that).
+import discord.bot as _bot_mod
+
+
+class _FakeLog:
+    def __init__(self):
+        self.rows = []
+
+    def insert(self, *a):
+        self.rows.append(a)
+
+    def see(self, *a):
+        return None
+
+
+_ne_err = ""
+try:
+    _bot_mod.run_single_account(
+        "tok_test", 1, ["123"], 60, 90, ["hello"], _FakeLog(), {}, [False],
+        run_id=99, generation_ref=[99], profile_name="Acc 1",
+        channels=[{"id": "123", "cd_min": 1, "cd_max": 1, "messages": ["x"]}])
+except NameError as e:
+    _ne_err = str(e)
+check("run_single_account khong NameError (default_messages/schedule...)",
+      not _ne_err, detail=_ne_err)
+calls.clear()
 
 # --- 4. i18n: moi key dung trong code phai dich duoc o ca 2 ngon ngu ---
 import json

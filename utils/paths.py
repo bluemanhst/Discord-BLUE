@@ -47,7 +47,7 @@ def resource_path(*parts):
     Tự dò lần lượt: _MEIPASS -> _MEIPASS/_internal -> cạnh EXE -> gốc project.
 
     Args:
-        *parts: Các thành phần đường dẫn, ví dụ resource_path("assets", "logo.ico")
+        *parts: Các thành phần đường dẫn, ví dụ resource_path("assets", "logo_discord_blue.ico")
 
     Returns:
         str: Đường dẫn tuyệt đối (trả về ứng viên đầu tiên nếu file không tồn tại)

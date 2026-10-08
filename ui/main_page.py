@@ -58,6 +58,14 @@ def validate_token_list(tokens):
     validator_window.geometry("820x620")
     validator_window.minsize(680, 480)
     validator_window.configure(bg=t["bg_app"])
+    # Grab modal CHỈ khi đang có grab khác giữ toàn bộ click (vd popup Kênh
+    # grab_set) -> nếu không, cửa sổ này đơ, bấm Đóng/X không được. Mở từ
+    # trang chính (không grab) thì bỏ qua, giữ nguyên hành vi cũ không modal.
+    try:
+        if validator_window.tk.call("grab", "current"):
+            validator_window.grab_set()
+    except Exception:
+        pass
 
     container = tk.Frame(validator_window, bg=t["bg_app"])
     container.pack(fill="both", expand=True, padx=20, pady=16)
@@ -355,6 +363,14 @@ def validate_channel_items(items):
     validator_window.geometry("820x620")
     validator_window.minsize(680, 480)
     validator_window.configure(bg=t["bg_app"])
+    # Grab modal CHỈ khi đang có grab khác giữ toàn bộ click (vd popup Kênh
+    # grab_set) -> nếu không, cửa sổ này đơ, bấm Đóng/X không được. Mở từ
+    # trang chính (không grab) thì bỏ qua, giữ nguyên hành vi cũ không modal.
+    try:
+        if validator_window.tk.call("grab", "current"):
+            validator_window.grab_set()
+    except Exception:
+        pass
 
     container = tk.Frame(validator_window, bg=t["bg_app"])
     container.pack(fill="both", expand=True, padx=20, pady=16)

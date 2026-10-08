@@ -192,15 +192,35 @@ def migrate_legacy_to_profiles(config_data):
 
 
 def ensure_profiles(config_data):
-    """Đảm bảo config luôn có profiles[] hợp lệ, tự migrate nếu thiếu."""
+    """Đảm bảo config luôn có profiles[] hợp lệ, tự migrate nếu thiếu.
+
+    Update IN-PLACE để giữ reference cho panel (tránh stale list):
+    - Không gán list mới, mà mutate list/dict cũ đang được UI giữ.
+    """
     raw_profiles = config_data.get("profiles")
     if isinstance(raw_profiles, list) and raw_profiles:
         fallback = default_profile()
         cleaned = [normalize_profile(p, index=i, fallback=fallback)
                    for i, p in enumerate(raw_profiles, start=1)]
-        config_data["profiles"] = cleaned
-        return cleaned
+        # Update in-place: giữ nguyên object list cũ
+        for i, new_prof in enumerate(cleaned):
+            if i < len(raw_profiles) and isinstance(raw_profiles[i], dict):
+                raw_profiles[i].clear()
+                raw_profiles[i].update(new_prof)
+            elif i < len(raw_profiles):
+                raw_profiles[i] = new_prof
+            else:
+                raw_profiles.append(new_prof)
+        while len(raw_profiles) > len(cleaned):
+            raw_profiles.pop()
+        config_data["profiles"] = raw_profiles
+        return raw_profiles
     profiles = migrate_legacy_to_profiles(config_data)
+    existing = config_data.get("profiles")
+    if isinstance(existing, list):
+        existing.clear()
+        existing.extend(profiles)
+        return existing
     config_data["profiles"] = profiles
     return profiles
 

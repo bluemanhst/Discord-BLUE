@@ -17,7 +17,7 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 # ===== CẤU HÌNH FILE =====
 CONFIG_FILE = user_path("config.json")
 LANGUAGES_DIR = resource_path("languages")
-APP_ICON = resource_path("assets", "logo.ico")
+APP_ICON = resource_path("assets", "logo_discord_blue.ico")
 
 # ===== CẤU HÌNH SOCIAL LINKS =====
 DISCORD_LINK = "https://discord.com/users/481280614956400690"

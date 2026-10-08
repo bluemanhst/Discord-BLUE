@@ -7,10 +7,11 @@ from tkinter import messagebox
 from utils.theme import (
     get_theme, create_card_frame, create_styled_button,
     create_styled_entry,
-    FONT_BODY, FONT_BODY_BOLD, FONT_CAPTION
+    FONT_BODY, FONT_BODY_BOLD, FONT_CAPTION, FONT_CODE
 )
 from config import config_data
 import language
+import threading
 
 
 def _short_profile_name(profile, index=1):
@@ -25,15 +26,19 @@ def _short_profile_name(profile, index=1):
 def create_profiles_panel(parent, on_profile_changed=None):
     """Tạo panel quản lý profile riêng cho từng token."""
     t = get_theme()
-    profiles = config_data.setdefault("profiles", [])
     state = {"index": 0, "loading": False}
+
+    def _get_profiles():
+        """Luôn đọc list mới nhất từ config (tránh stale sau ensure in-place)."""
+        return config_data.setdefault("profiles", [])
 
     def current_profile():
         from profiles import default_profile, normalize_profile
-        if not profiles:
-            profiles.append(normalize_profile(default_profile(name="Acc 1"), index=1))
-        state["index"] = max(0, min(state["index"], len(profiles) - 1))
-        return profiles[state["index"]]
+        plist = _get_profiles()
+        if not plist:
+            plist.append(normalize_profile(default_profile(name="Acc 1"), index=1))
+        state["index"] = max(0, min(state["index"], len(plist) - 1))
+        return plist[state["index"]]
 
     card, inner = create_card_frame(parent, padx=14, pady=12)
     card.pack(fill="both", expand=True)
@@ -122,33 +127,33 @@ def create_profiles_panel(parent, on_profile_changed=None):
     _, label_chat_summary = create_styled_entry(right, width=40)
     label_chat_summary.master.pack(fill="x", pady=(0, 8))
 
+    # Option B: Ẩn CD mặc định của acc (chỉ giữ trong JSON để migrate cũ).
+    # Mọi cooldown chạy theo CD riêng từng kênh trong popup.
     cool_row = tk.Frame(right, bg=t["bg_panel"])
-    cool_row.pack(fill="x", pady=(0, 4))
-    tk.Label(cool_row, text=language.t("profiles_panel.cooldown_min"),
-             bg=t["bg_panel"], fg=t["text_secondary"], font=FONT_BODY).grid(row=0, column=0, sticky="w")
+    # Không pack cool_row -> ẩn khỏi UI, giữ entry ẩn để code cũ không lỗi.
     _, entry_p_min = create_styled_entry(cool_row, width=8)
-    entry_p_min.master.grid(row=0, column=1, padx=(6, 20), sticky="w")
-    tk.Label(cool_row, text=language.t("profiles_panel.cooldown_max"),
-             bg=t["bg_panel"], fg=t["text_secondary"], font=FONT_BODY).grid(row=0, column=2, sticky="w")
+    entry_p_min.insert(0, "60")
     _, entry_p_max = create_styled_entry(cool_row, width=8)
-    entry_p_max.master.grid(row=0, column=3, padx=(6, 0), sticky="w")
+    entry_p_max.insert(0, "90")
 
     tk.Label(right, text=language.t("profiles_panel.hint"),
              bg=t["bg_panel"], fg=t["text_muted"], font=FONT_CAPTION,
              justify="left", wraplength=420).pack(fill="x", pady=(2, 0))
     def refresh_list(select_index=None):
+        plist = _get_profiles()
         if select_index is not None:
             state["index"] = select_index
         listbox.delete(0, tk.END)
-        for i, prof in enumerate(profiles):
+        for i, prof in enumerate(plist):
             listbox.insert(tk.END, _short_profile_name(prof, index=i + 1))
-        if profiles:
+        if plist:
             listbox.selection_clear(0, tk.END)
             listbox.selection_set(state["index"])
             listbox.see(state["index"])
 
     def save_current_to_model():
-        if not profiles:
+        plist = _get_profiles()
+        if not plist:
             return
         prof = current_profile()
         prof["enabled"] = bool(var_enabled.get())
@@ -157,16 +162,8 @@ def create_profiles_panel(parent, on_profile_changed=None):
         if not isinstance(prof.get("messages"), list):
             prof["messages"] = []
         _sync_channels(prof)
-        try:
-            prof["cooldown_min"] = max(0, int(entry_p_min.get().strip() or 0))
-        except ValueError:
-            prof["cooldown_min"] = 60
-        try:
-            prof["cooldown_max"] = max(0, int(entry_p_max.get().strip() or 0))
-        except ValueError:
-            prof["cooldown_max"] = 90
-        if prof["cooldown_min"] > prof["cooldown_max"]:
-            prof["cooldown_min"], prof["cooldown_max"] = prof["cooldown_max"], prof["cooldown_min"]
+        # Option B: CD acc ẩn UI -> giữ nguyên số trong JSON, không đọc từ
+        # entry ẩn (tránh ghi đè 60/90 lên data migrate cũ).
 
     def open_channels_editor():
         from tkinter import messagebox
@@ -277,7 +274,7 @@ def create_profiles_panel(parent, on_profile_changed=None):
             except (TypeError, ValueError):
                 return None
 
-        def add_or_update():
+        def add_channels():
             # Hỗ trợ dán nhiều ID 1 lần: tách theo space/enter/dấu phẩy/chấm phẩy
             raw = id_var.get().replace(",", " ").replace(";", " ")
             ids = [x for x in raw.split() if x]
@@ -315,16 +312,94 @@ def create_profiles_panel(parent, on_profile_changed=None):
                 return
             for cid in new_ids:
                 chs.append({"id": cid, "cd_min": mn, "cd_max": mx, "messages": []})
+            if dup_ids:
+                # Fix mất cập nhật lần 2: ID đã tồn tại -> ghi đè CD mới.
+                want = {d.lower() for d in dup_ids}
+                for c in chs:
+                    if str(c.get("id") or "").lower() in want:
+                        c["cd_min"], c["cd_max"] = mn, mx
             prof["channels"] = chs
             refresh_tree()
             id_var.set("")
             min_var.set("")
             max_var.set("")
             _sync_channels(prof)
+            try:
+                from config import save_config
+                save_config(config_data)
+            except Exception:
+                pass
+            _notify_changed()
             if dup_ids:
                 messagebox.showinfo(language.t("common.info_title"),
                                      language.t("profiles_panel.channels_added",
                                                 len(new_ids), len(dup_ids)))
+
+        def update_selected():
+            """Sửa ID/CD của kênh ĐANG CHỌN trong bảng (khác với Thêm = tạo mới)."""
+            sel = tree.selection()
+            if not sel:
+                messagebox.showwarning(language.t("common.warning_title"),
+                                       language.t("profiles_panel.update_select_channel"))
+                return
+            old_id = str(tree.item(sel[0], "values")[0])
+            raw = id_var.get().replace(",", " ").replace(";", " ")
+            ids = [x for x in raw.split() if x]
+            if not ids:
+                messagebox.showwarning(language.t("common.warning_title"),
+                                       language.t("profiles_panel.channel_id_required"))
+                return
+            if len(ids) > 1:
+                messagebox.showwarning(language.t("common.warning_title"),
+                                       language.t("profiles_panel.update_single_channel"))
+                return
+            new_id = ids[0]
+            if not new_id.isdigit():
+                messagebox.showwarning(language.t("common.warning_title"),
+                                       language.t("profiles_panel.invalid_channel_ids",
+                                                  new_id))
+                return
+            mn = parse_int(min_var.get())
+            mx = parse_int(max_var.get())
+            if mn is None or mx is None:
+                messagebox.showwarning(language.t("common.warning_title"),
+                                       language.t("profiles_panel.invalid_cooldown"))
+                return
+            if mn > mx:
+                mn, mx = mx, mn
+            chs = prof.get("channels") or []
+            # Đổi ID không được trùng kênh khác
+            if (new_id.lower() != old_id.lower()
+                    and any(str(c.get("id") or "").lower() == new_id.lower()
+                            for c in chs)):
+                messagebox.showwarning(language.t("common.warning_title"),
+                                       language.t("profiles_panel.dup_channel", new_id))
+                return
+            target = next((c for c in chs
+                           if str(c.get("id") or "") == old_id), None)
+            if target is None:
+                messagebox.showwarning(language.t("common.warning_title"),
+                                       language.t("profiles_panel.update_select_channel"))
+                return
+            target["id"] = new_id
+            target["cd_min"], target["cd_max"] = mn, mx
+            prof["channels"] = chs
+            refresh_tree()
+            # Chọn lại dòng vừa sửa (select_row tự nạp ID/CD vào ô nhập)
+            for r in tree.get_children():
+                if str(tree.item(r, "values")[0]) == new_id:
+                    tree.selection_set(r)
+                    tree.see(r)
+                    break
+            _sync_channels(prof)
+            try:
+                from config import save_config
+                save_config(config_data)
+            except Exception:
+                pass
+            _notify_changed()
+            messagebox.showinfo(language.t("common.info_title"),
+                                language.t("profiles_panel.channel_updated", new_id))
 
         def remove_selected():
             sel = tree.selection()
@@ -339,6 +414,12 @@ def create_profiles_panel(parent, on_profile_changed=None):
                 prof["channels"] = chs
                 refresh_tree()
                 _sync_channels(prof)
+                try:
+                    from config import save_config
+                    save_config(config_data)
+                except Exception:
+                    pass
+                _notify_changed()
 
         def _selected_channel():
             sel = tree.selection()
@@ -363,7 +444,8 @@ def create_profiles_panel(parent, on_profile_changed=None):
                 get_list=lambda c=ch: c.setdefault("messages", []),
                 set_list=lambda v, c=ch: c.__setitem__("messages", v),
                 on_change=refresh_tree,
-                default_getter=lambda: prof.get("messages") or [])
+                default_getter=lambda: prof.get("messages") or [],
+                channel_id=str(ch.get("id") or ""))
 
         def check_selected_channels():
             """Kiểm kênh của acc này - chọn 1 kênh thì kiểm kênh đó, chưa chọn thì hỏi kiểm tất cả."""
@@ -397,16 +479,22 @@ def create_profiles_panel(parent, on_profile_changed=None):
 
         btn_row2 = tk.Frame(win, bg=t["bg_panel"])
         btn_row2.grid(row=4, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 10))
-        btn_row2.columnconfigure(1, weight=1)
+        btn_row2.columnconfigure(2, weight=1)
         create_styled_button(btn_row2, text=language.t("profiles_panel.add_channel"),
-                             command=add_or_update, variant="primary",
+                             command=add_channels, variant="primary",
                              padx=14, pady=4).grid(row=0, column=0, sticky="ew", pady=2)
+        create_styled_button(btn_row2, text=language.t("profiles_panel.update_channel"),
+                             command=update_selected, variant="primary",
+                             padx=14, pady=4).grid(row=0, column=1, sticky="ew",
+                                                   padx=(4, 0), pady=2)
         create_styled_button(btn_row2, text=language.t("profiles_panel.remove_channel"),
                              command=remove_selected, variant="danger",
-                             padx=14, pady=4).grid(row=0, column=1, sticky="ew", pady=2)
+                             padx=14, pady=4).grid(row=0, column=2, sticky="ew",
+                                                   padx=(4, 0), pady=2)
         create_styled_button(btn_row2, text=language.t("profiles_panel.done"),
                              command=win.destroy, variant="secondary",
-                             padx=14, pady=4).grid(row=0, column=2, sticky="ew", pady=2)
+                             padx=14, pady=4).grid(row=0, column=3, sticky="ew",
+                                                   padx=(4, 0), pady=2)
 
         # Hàng nút thứ 2: chat riêng của kênh + kiểm kênh bằng token acc này
         btn_row3 = tk.Frame(win, bg=t["bg_panel"])
@@ -441,10 +529,12 @@ def create_profiles_panel(parent, on_profile_changed=None):
         except Exception:
             pass
 
-    def open_chat_editor(title_text, get_list, set_list, on_change=None, default_getter=None):
+    def open_chat_editor(title_text, get_list, set_list, on_change=None, default_getter=None,
+                         channel_id=None):
         """
         Popup sửa list tin nhắn (chat mặc định của acc hoặc chat riêng của kênh).
         Mỗi mục = 1 tin nhắn; Shift+Enter để xuống hàng BÊN TRONG tin nhắn (đa dòng).
+        channel_id: kênh chứa guild -> tra emoji server cho ô Xem trước (bỏ qua được).
         """
         win = tk.Toplevel(card)
         win.title(title_text)
@@ -503,7 +593,175 @@ def create_profiles_panel(parent, on_profile_changed=None):
             lbl_len.config(text=language.t("profiles_panel.chat_len_counter", n),
                            fg=t["danger"] if n > 2000 else t["text_muted"])
 
-        editor.bind("<KeyRelease>", _update_len)
+        # ===== Xem trước Discord: emoji server + markdown (ô soạn giữ text gốc) =====
+        lbl_preview = tk.Label(list_frame,
+                               text=language.t("profiles_panel.chat_preview"),
+                               bg=t["bg_panel"], fg=t["text_secondary"],
+                               font=FONT_BODY, anchor="w")
+        lbl_preview.grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        preview = tk.Text(list_frame, height=3, bg=t["bg_input"], fg=t["text_primary"],
+                          font=FONT_BODY, relief="flat", bd=4, highlightthickness=1,
+                          highlightbackground=t["border"], wrap="word",
+                          state="disabled", cursor="arrow")
+        preview.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+
+        from utils.chat_markup import parse_markup
+
+        _emoji_map = {}     # name_lower -> {"id","animated"} (tu guild API)
+        _img_bytes = {}     # emoji_id -> bytes anh da tai
+        _img_photos = {}    # emoji_id -> PhotoImage (giu reference cho Text)
+        _img_pending = set()
+
+        try:
+            import tkinter.font as tkfont
+            _fam, _sz = FONT_BODY[0], FONT_BODY[1]
+            preview.tag_config("bold", font=tkfont.Font(family=_fam, size=_sz, weight="bold"))
+            preview.tag_config("italic", font=tkfont.Font(family=_fam, size=_sz, slant="italic"))
+            preview.tag_config("bold_italic", font=tkfont.Font(
+                family=_fam, size=_sz, weight="bold", slant="italic"))
+            preview.tag_config("code", font=tkfont.Font(family=FONT_CODE[0], size=FONT_CODE[1]),
+                               background=t["bg_hover"])
+            preview.tag_config("underline", underline=True)
+            preview.tag_config("strike", overstrike=True)
+            preview.tag_config("unknown_emoji", foreground=t["danger"])
+        except Exception:
+            pass
+
+        def _style_tags(styles):
+            styles = set(styles or ())
+            if "code" in styles:
+                return ("code",)
+            tags = []
+            if "bold" in styles and "italic" in styles:
+                tags.append("bold_italic")
+            elif "bold" in styles:
+                tags.append("bold")
+            elif "italic" in styles:
+                tags.append("italic")
+            if "underline" in styles:
+                tags.append("underline")
+            if "strike" in styles:
+                tags.append("strike")
+            return tuple(tags)
+
+        def _photo(eid):
+            """Chuyen bytes -> PhotoImage lan dau tien, sau do lay tu cache."""
+            photo = _img_photos.get(eid)
+            if photo is not None:
+                return photo
+            data = _img_bytes.get(eid)
+            if data is None:
+                return None
+            try:
+                import io
+                from PIL import Image, ImageTk
+                img = Image.open(io.BytesIO(data))
+                img = img.resize((32, 32), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                _img_photos[eid] = photo
+                return photo
+            except Exception:
+                return None
+
+        def _fetch_img_async(eid, animated):
+            """Tai anh emoji trong thread rieng (khong block UI); xong -> render lai."""
+            if not eid or eid in _img_pending or eid in _img_bytes:
+                return
+            _img_pending.add(eid)
+
+            def _work():
+                try:
+                    import requests
+                    from discord.guild_emojis import emoji_image_url
+                    r = requests.get(emoji_image_url(eid, animated), timeout=6)
+                    if r.status_code == 200:
+                        _img_bytes[eid] = r.content
+                except Exception:
+                    pass
+                _img_pending.discard(eid)
+                try:
+                    if win.winfo_exists():
+                        win.after(0, _render_preview)
+                except Exception:
+                    pass
+
+            threading.Thread(target=_work, daemon=True).start()
+
+        def _render_preview(*_a):
+            try:
+                if not win.winfo_exists():
+                    return
+            except Exception:
+                return
+            raw = editor.get("1.0", "end-1c")
+            try:
+                preview.config(state="normal")
+                preview.delete("1.0", tk.END)
+                for seg in parse_markup(raw):
+                    stype = seg.get("type")
+                    if stype == "newline":
+                        preview.insert("end", "\n")
+                    elif stype == "text":
+                        preview.insert("end", seg.get("text") or "",
+                                       _style_tags(seg.get("styles")))
+                    else:
+                        eid, animated, name = None, False, seg.get("name") or ""
+                        if stype == "emoji_id":
+                            eid, animated = seg.get("id"), bool(seg.get("animated"))
+                        elif stype == "emoji_name":
+                            info = _emoji_map.get(name.lower())
+                            if info:
+                                eid, animated = info.get("id"), bool(info.get("animated"))
+                        photo = _photo(eid) if eid else None
+                        if photo is not None:
+                            preview.image_create("end", image=photo)
+                        else:
+                            if eid:
+                                _fetch_img_async(eid, animated)
+                            # Chua tra duoc (kho load/guild loi) -> giu text, mau do
+                            preview.insert("end", f":{name}:", ("unknown_emoji",))
+            finally:
+                try:
+                    preview.config(state="disabled")
+                except Exception:
+                    pass
+
+        def _on_editor_change(*_a):
+            _update_len()
+            _render_preview()
+
+        # Tra list emoji cua guild chua channel dang sua chat (thread rieng)
+        if channel_id:
+            _tok = str(current_profile().get("token") or "").strip()
+            if _tok:
+                lbl_preview.config(text=language.t("profiles_panel.chat_preview_loading"))
+
+                def _after_guild_loaded():
+                    try:
+                        if win.winfo_exists():
+                            lbl_preview.config(
+                                text=language.t("profiles_panel.chat_preview"))
+                            _render_preview()
+                    except Exception:
+                        pass
+
+                def _load_guild_emojis():
+                    from discord.guild_emojis import fetch_emojis_for_channel
+                    try:
+                        found = fetch_emojis_for_channel(str(channel_id), _tok)
+                    except Exception:
+                        found = {}
+                    _emoji_map.update(found or {})
+                    try:
+                        if win.winfo_exists():
+                            win.after(0, _after_guild_loaded)
+                    except Exception:
+                        pass
+
+                threading.Thread(target=_load_guild_emojis, daemon=True).start()
+
+        editor.bind("<KeyRelease>", _on_editor_change)
+        editor.bind("<<Paste>>", lambda _e: win.after(1, _on_editor_change))
 
         def refresh(selected=None):
             lb.delete(0, tk.END)
@@ -525,6 +783,7 @@ def create_profiles_panel(parent, on_profile_changed=None):
             editor.delete("1.0", tk.END)
             editor.insert("1.0", str(get_list()[sel[0]]))
             _update_len()
+            _render_preview()
 
         lb.bind("<<ListboxSelect>>", on_select)
 
@@ -553,6 +812,7 @@ def create_profiles_panel(parent, on_profile_changed=None):
             set_list(lst)
             refresh(len(lst) - 1)
             editor.delete("1.0", tk.END)
+            _on_editor_change()
             _after_change()
 
         def do_update():
@@ -587,6 +847,7 @@ def create_profiles_panel(parent, on_profile_changed=None):
             del lst[sel[0]]
             set_list(lst)
             editor.delete("1.0", tk.END)
+            _on_editor_change()
             refresh(min(sel[0], len(lst) - 1) if lst else None)
             _after_change()
 
@@ -609,12 +870,14 @@ def create_profiles_panel(parent, on_profile_changed=None):
                 set_list([str(m) for m in default_getter() if str(m).strip()])
                 refresh()
                 editor.delete("1.0", tk.END)
+                _on_editor_change()
                 _after_change()
 
             def use_default():
                 set_list([])
                 refresh()
                 editor.delete("1.0", tk.END)
+                _on_editor_change()
                 _after_change()
 
             _mk(language.t("profiles_panel.chat_copy_default"), copy_default)
@@ -625,16 +888,24 @@ def create_profiles_panel(parent, on_profile_changed=None):
         _mk(language.t("profiles_panel.done"), win.destroy)
 
         refresh()
+        _on_editor_change()
 
     def open_default_chat_editor():
         """Sửa bộ chat mặc định của acc hiện tại."""
         prof = current_profile()
         title = language.t("profiles_panel.chat_editor_title").format(prof.get("name", "Acc 1"))
+        # Emoji preview tra theo guild của kênh đầu tiên (chat acc không thuộc kênh nào)
+        _chs = prof.get("channels") or []
+        first_ch = str(_chs[0].get("id") or "").strip() if _chs else ""
+        if not first_ch:
+            _ids = [str(c or "").strip() for c in (prof.get("channel_ids") or [])]
+            first_ch = next((i for i in _ids if i), "")
         open_chat_editor(
             title,
             get_list=lambda: prof.setdefault("messages", []),
             set_list=lambda v: prof.__setitem__("messages", v),
-            on_change=lambda: _refresh_chat_summary(prof))
+            on_change=lambda: _refresh_chat_summary(prof),
+            channel_id=first_ch or None)
 
     def _check_current_token():
         """Kiểm tra token của acc đang chọn."""
@@ -663,11 +934,12 @@ def create_profiles_panel(parent, on_profile_changed=None):
     def load_profile_to_ui(index):
         state["loading"] = True
         try:
-            if not profiles:
+            plist = _get_profiles()
+            if not plist:
                 return
-            index = max(0, min(int(index), len(profiles) - 1))
+            index = max(0, min(int(index), len(plist) - 1))
             state["index"] = index
-            prof = profiles[index]
+            prof = plist[index]
             var_enabled.set(bool(prof.get("enabled", True)))
             entry_name.delete(0, tk.END)
             entry_name.insert(0, str(prof.get("name", f"Acc {index + 1}")))
@@ -692,7 +964,7 @@ def create_profiles_panel(parent, on_profile_changed=None):
             pass
 
     def on_select(_event=None):
-        if state["loading"] or not profiles:
+        if state["loading"] or not _get_profiles():
             return
         sel = listbox.curselection()
         if not sel:
@@ -705,20 +977,22 @@ def create_profiles_panel(parent, on_profile_changed=None):
     def on_add():
         save_current_to_model()
         from profiles import default_profile
-        base = current_profile() if profiles else default_profile()
+        plist = _get_profiles()
+        base = current_profile() if plist else default_profile()
         import copy
         import uuid
         new_prof = copy.deepcopy(base)
         new_prof["id"] = f"prof_{uuid.uuid4().hex[:8]}"
-        new_prof["name"] = f"Acc {len(profiles) + 1}"
+        new_prof["name"] = f"Acc {len(plist) + 1}"
         new_prof["token"] = ""
-        profiles.append(new_prof)
-        refresh_list(select_index=len(profiles) - 1)
-        load_profile_to_ui(len(profiles) - 1)
+        plist.append(new_prof)
+        refresh_list(select_index=len(plist) - 1)
+        load_profile_to_ui(len(plist) - 1)
         _notify_changed()
 
     def on_duplicate():
-        if not profiles:
+        plist = _get_profiles()
+        if not plist:
             return
         save_current_to_model()
         import copy
@@ -726,19 +1000,20 @@ def create_profiles_panel(parent, on_profile_changed=None):
         src = copy.deepcopy(current_profile())
         src["id"] = f"prof_{uuid.uuid4().hex[:8]}"
         src["name"] = f"{src.get('name', 'Acc')} copy"
-        profiles.insert(state["index"] + 1, src)
+        plist.insert(state["index"] + 1, src)
         refresh_list(select_index=state["index"] + 1)
         load_profile_to_ui(state["index"] + 1)
         _notify_changed()
 
     def on_delete():
-        if len(profiles) <= 1:
+        plist = _get_profiles()
+        if len(plist) <= 1:
             messagebox.showwarning(
                 language.t("common.warning_title"),
                 language.t("profiles_panel.keep_one"),
             )
             return
-        profiles.pop(state["index"])
+        plist.pop(state["index"])
         state["index"] = max(0, state["index"] - 1)
         refresh_list(select_index=state["index"])
         load_profile_to_ui(state["index"])
@@ -772,9 +1047,27 @@ def create_profiles_panel(parent, on_profile_changed=None):
     refresh_list(select_index=0)
     load_profile_to_ui(0)
 
+    # Proxy trả về luôn đọc động từ config_data — tránh reference list cũ
+    # (ensure_profiles/panel từng giữ 2 list khác nhau -> mất cập nhật).
+    class _ProfilesProxy:
+        def _l(self):
+            return _get_profiles()
+
+        def __len__(self):
+            return len(self._l())
+
+        def __iter__(self):
+            return iter(self._l())
+
+        def __getitem__(self, i):
+            return self._l()[i]
+
+        def __bool__(self):
+            return bool(self._l())
+
     return {
         "frame": card,
-        "profiles": profiles,
+        "profiles": _ProfilesProxy(),
         "get_selected_index": lambda: state["index"],
         "get_selected_profile": lambda: current_profile(),
         "save_current": save_current_to_model,

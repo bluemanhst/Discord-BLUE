@@ -102,6 +102,12 @@ class _Widget:
     def tag_config(self, *a, **k):
         return None
 
+    def tag_add(self, *a, **k):
+        return None
+
+    def image_create(self, *a, **k):
+        return 0
+
     def winfo_children(self):
         return []
 

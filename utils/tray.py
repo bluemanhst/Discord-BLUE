@@ -42,7 +42,7 @@ class TrayManager:
         return self._running
 
     def _load_image(self):
-        """Ảnh icon cho tray (ưu tiên logo.ico trong assets)"""
+        """Ảnh icon cho tray (ưu tiên logo_discord_blue.ico trong assets)"""
         if self.icon_path and os.path.exists(self.icon_path):
             try:
                 return Image.open(self.icon_path)
