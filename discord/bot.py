@@ -40,7 +40,8 @@ def _ch_cooldown(ch, fb_min, fb_max):
 # ===== HÀM CHẠY TÀI KHOẢN ĐỘC LẬP (Multi-threading) =====
 def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown_max, 
                       messages, log_widget, features, bot_running_ref,
-                      run_id=None, generation_ref=None, profile_name=None, channels=None):
+                      run_id=None, generation_ref=None, profile_name=None, channels=None,
+                      emoji_guilds=None):
     """
     Chạy bot cho TỪNG tài khoản Discord riêng biệt.
     Mỗi acc 1 thread quản lý, bên trong tự spawn 1 worker/kênh chạy SONG SONG
@@ -114,6 +115,10 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
         except Exception:
             return False
 
+    # Server emoji da tick (theo acc) -> truyen xuong worker resolve :ten:.
+    profile_emoji_guilds = [str(g).strip() for g in (emoji_guilds or [])
+                            if str(g).strip()]
+
     workers = []
     for order, tgt in enumerate(targets):
         if not tgt["pool"]:
@@ -124,7 +129,8 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
                   dict(features or {}), log_widget,
                   bot_running_ref, run_id, generation_ref,
                   schedule_enabled, schedule_start, schedule_end,
-                  smart_templates, token_invalid, order),
+                  smart_templates, token_invalid, order,
+                  list(profile_emoji_guilds)),
             daemon=True)
         th.start()
         workers.append(th)
@@ -141,7 +147,8 @@ def run_single_account(token, account_index, channel_ids, cooldown_min, cooldown
 def _run_one_channel(token, account_index, short_token, account_id, target,
                      features, log_widget, bot_running_ref, run_id,
                      generation_ref, schedule_enabled, schedule_start,
-                     schedule_end, smart_templates, token_invalid, order):
+                     schedule_end, smart_templates, token_invalid, order,
+                     profile_emoji_guilds=None):
     """Worker chạy 1 kênh: CD/break/typing/delete độc lập, không chờ kênh khác."""
     import requests as _rq
     import random as _rd
@@ -182,12 +189,15 @@ def _run_one_channel(token, account_index, short_token, account_id, target,
     log_widget.see(tk.END)
 
     # Discord chi render custom emoji voi format CO ID (<:name:id>/<a:name:id>),
-    # gui nguyen :name: se hien text -> doi truoc khi gui, map theo guild cua
-    # channel (co cache; loi/timeout -> giu nguyen text, khong worse hien tai).
+    # gui nguyen :name: se hien text -> doi truoc khi gui. Map = guild cua
+    # channel (uu tien) + server da tick trong profile["emoji_guilds"].
+    # Trung ten (:test: o ca sv1/sv2): guild channel thang, roi theo thu tu
+    # tick. Loi/thieu -> giu nguyen text.
     try:
-        from discord.guild_emojis import fetch_emojis_for_channel
+        from discord.guild_emojis import build_selected_emoji_map
         from utils.chat_markup import resolve_emoji_shortcodes
-        _emap = fetch_emojis_for_channel(channel_id, token) or {}
+        _sel = list((profile_emoji_guilds or []))
+        _emap = build_selected_emoji_map(token, channel_id, _sel) or {}
         if _emap:
             pool = [resolve_emoji_shortcodes(str(m), _emap) for m in pool]
     except Exception:

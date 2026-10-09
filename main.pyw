@@ -280,6 +280,7 @@ def start_trigger():
             dict(prof.get("features", {})), bot_running
         ), kwargs={"run_id": current_run, "generation_ref": bot_generation,
             "channels": ch_list,
+            "emoji_guilds": list(prof.get("emoji_guilds", []) or []),
 
                    "profile_name": str(prof.get("name") or f"Acc {index}")}, daemon=True)
         account_threads.append(t)

@@ -57,7 +57,10 @@ def default_profile(name="Acc 1", token=""):
         "messages": list(base.get("custom_message", ["Hello"])),
         "cooldown_min": int(base.get("cooldown_min", 60)),
         "cooldown_max": int(base.get("cooldown_max", 90)),
+        "emoji_guilds": [],
         "features": copy.deepcopy(base.get("features", {})),
+        "has_nitro": False,
+        "premium_type": 0,
     }
 
 
@@ -68,6 +71,19 @@ def normalize_profile(raw, index=1, fallback=None):
         raw = {}
     out = copy.deepcopy(fb)
     out.update({k: v for k, v in raw.items() if k in out})
+
+    # Preserve nitro flag from raw (keep after template update)
+    if "has_nitro" in raw:
+        out["has_nitro"] = bool(raw["has_nitro"])
+
+    # Loai Nitro (0 khong, 1 Classic, 2 Plus, 3 Basic) - ép int, thiếu -> 0
+    if "premium_type" in raw:
+        try:
+            out["premium_type"] = int(raw["premium_type"])
+        except (TypeError, ValueError):
+            out["premium_type"] = 0
+    else:
+        out.setdefault("premium_type", 0)
 
     out["id"] = str(raw.get("id") or out["id"])
     out["name"] = str(raw.get("name") or f"Acc {index}").strip() or f"Acc {index}"
@@ -134,6 +150,19 @@ def normalize_profile(raw, index=1, fallback=None):
     out["channels"] = _normalize_channels(
         raw.get("channels"), out["cooldown_min"], out["cooldown_max"], out["channel_ids"])
     out["channel_ids"] = [c["id"] for c in out["channels"]]
+
+    raw_eg = raw.get("emoji_guilds")
+    if isinstance(raw_eg, str):
+        raw_eg = [raw_eg]
+    if isinstance(raw_eg, (list, tuple)):
+        seen_eg, out["emoji_guilds"] = set(), []
+        for g in raw_eg:
+            gid = str(g).strip()
+            if gid and gid not in seen_eg:
+                seen_eg.add(gid)
+                out["emoji_guilds"].append(gid)
+    else:
+        out["emoji_guilds"] = list(fb.get("emoji_guilds", []))
 
     out["cooldown_min"] = _int(raw.get("cooldown_min"), fb["cooldown_min"])
     out["cooldown_max"] = _int(raw.get("cooldown_max"), fb["cooldown_max"])

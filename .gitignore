@@ -58,3 +58,6 @@ dist/
 AI_HANDOFF.md
 backups/
 backup_now.ps1
+
+# Emoji library disk cache (local user data)
+emoji_cache.json

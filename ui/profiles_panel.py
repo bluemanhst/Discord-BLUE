@@ -144,8 +144,16 @@ def create_profiles_panel(parent, on_profile_changed=None):
         if select_index is not None:
             state["index"] = select_index
         listbox.delete(0, tk.END)
+        try:
+            from discord.token_validator import nitro_label
+        except Exception:
+            nitro_label = lambda _pt: ""
         for i, prof in enumerate(plist):
-            listbox.insert(tk.END, _short_profile_name(prof, index=i + 1))
+            label = _short_profile_name(prof, index=i + 1)
+            nt = nitro_label(prof.get("premium_type", 0))
+            if nt and nt != "Unknown":
+                label = f"{label} [{nt}]"
+            listbox.insert(tk.END, label)
         if plist:
             listbox.selection_clear(0, tk.END)
             listbox.selection_set(state["index"])
@@ -159,6 +167,11 @@ def create_profiles_panel(parent, on_profile_changed=None):
         prof["enabled"] = bool(var_enabled.get())
         prof["name"] = entry_name.get().strip() or prof.get("name", "Acc 1")
         prof["token"] = txt_token.get().strip()
+        prof["has_nitro"] = bool(prof.get("has_nitro", False))
+        try:
+            prof["premium_type"] = int(prof.get("premium_type", 0))
+        except (TypeError, ValueError):
+            prof["premium_type"] = 0
         if not isinstance(prof.get("messages"), list):
             prof["messages"] = []
         _sync_channels(prof)
@@ -730,35 +743,63 @@ def create_profiles_panel(parent, on_profile_changed=None):
             _update_len()
             _render_preview()
 
-        # Tra list emoji cua guild chua channel dang sua chat (thread rieng)
-        if channel_id:
-            _tok = str(current_profile().get("token") or "").strip()
-            if _tok:
-                lbl_preview.config(text=language.t("profiles_panel.chat_preview_loading"))
+        # Map emoji preview: guild cua channel + server da tick (thread rieng).
+        # Trung ten (:test: o ca sv1 va sv2): guild channel thang, roi theo
+        # thu tu tick. Chua tick gi -> chi guild channel (giu hanh vi cu).
+        _tok = str(current_profile().get("token") or "").strip()
 
-                def _after_guild_loaded():
+        def _refresh_emoji_map():
+            try:
+                from discord.guild_emojis import build_selected_emoji_map
+                sel = list((current_profile() or {}).get("emoji_guilds") or [])
+                emap = build_selected_emoji_map(_tok, channel_id, sel)
+            except Exception:
+                emap = {}
+            if not emap:
+                return
+            _emoji_map.clear()
+            _emoji_map.update(emap)
+            try:
+                if win.winfo_exists():
+                    win.after(0, _render_preview)
+            except Exception:
+                pass
+
+        if _tok:
+            lbl_preview.config(text=language.t("profiles_panel.chat_preview_loading"))
+
+            def _load_guild_emojis():
+                from discord.guild_emojis import (build_selected_emoji_map,
+                                                  load_disk_cache,
+                                                  merge_emoji_maps,
+                                                  get_guild_id)
+                try:
+                    sel = list((current_profile() or {}).get("emoji_guilds") or [])
+                    emap = build_selected_emoji_map(_tok, channel_id, sel)
+                except Exception:
+                    emap = {}
+                if not emap:
+                    # Fallback: cache dia cu (thu vien toan cuc truoc day)
                     try:
-                        if win.winfo_exists():
+                        _disk = load_disk_cache()
+                        if _disk:
+                            gid = get_guild_id(str(channel_id), _tok) if channel_id else None
+                            emap = merge_emoji_maps(_disk, gid)
+                    except Exception:
+                        emap = {}
+                _emoji_map.clear()
+                _emoji_map.update(emap or {})
+                try:
+                    if win.winfo_exists():
+                        def _after_load():
                             lbl_preview.config(
                                 text=language.t("profiles_panel.chat_preview"))
                             _render_preview()
-                    except Exception:
-                        pass
+                        win.after(0, _after_load)
+                except Exception:
+                    pass
 
-                def _load_guild_emojis():
-                    from discord.guild_emojis import fetch_emojis_for_channel
-                    try:
-                        found = fetch_emojis_for_channel(str(channel_id), _tok)
-                    except Exception:
-                        found = {}
-                    _emoji_map.update(found or {})
-                    try:
-                        if win.winfo_exists():
-                            win.after(0, _after_guild_loaded)
-                    except Exception:
-                        pass
-
-                threading.Thread(target=_load_guild_emojis, daemon=True).start()
+            threading.Thread(target=_load_guild_emojis, daemon=True).start()
 
         editor.bind("<KeyRelease>", _on_editor_change)
         editor.bind("<<Paste>>", lambda _e: win.after(1, _on_editor_change))
@@ -851,6 +892,115 @@ def create_profiles_panel(parent, on_profile_changed=None):
             refresh(min(sel[0], len(lst) - 1) if lst else None)
             _after_change()
 
+        # Trang thai kiem token phien nen khi bam nut Emoji (chat editor)
+        _emoji_check = {"running": False}
+
+        def _open_emoji_library():
+            # Chon server dung emoji (Nitro): tick server -> preview/gui
+            # resolve :ten: tu server da tick (+ guild cua channel uu tien).
+            # Bam Emoji -> kiem tra token trong phien NEN truoc (cap nhat Nitro
+            # moi nhat cho acc chua tung kiem thu cong) roi moi mo thu vien.
+            if _emoji_check["running"]:
+                return
+            prof = current_profile()
+            token = str(prof.get("token") or "").strip()
+            if not token:
+                messagebox.showwarning(
+                    language.t("common.warning_title"),
+                    language.t("profiles_panel.check_token_empty"))
+                return
+
+            _emoji_check["running"] = True
+            try:
+                btn_emoji.config(state="disabled")
+                lbl_emoji_status.config(text=language.t("profiles_panel.emoji_checking"))
+            except Exception:
+                pass
+
+            def _launch_library():
+                try:
+                    from ui.emoji_library import open_emoji_library
+                    from config import save_config
+
+                    def _save_emoji_guilds(sel):
+                        try:
+                            current_profile()["emoji_guilds"] = list(sel or [])
+                        except Exception:
+                            pass
+                        try:
+                            save_config(config_data)
+                        except Exception:
+                            pass
+                        _refresh_emoji_map()
+
+                    open_emoji_library(win, current_profile, _save_emoji_guilds,
+                                       _tok, channel_id,
+                                       on_change=_on_editor_change)
+                except Exception:
+                    pass
+
+            def _finish(res, error=""):
+                # Chay tren main thread (win.after): luu ket qua + quyet dinh mo thu vien
+                _emoji_check["running"] = False
+                try:
+                    if win.winfo_exists():
+                        btn_emoji.config(state="normal")
+                        lbl_emoji_status.config(text="")
+                except Exception:
+                    pass
+
+                prof_now = current_profile()
+                if res is not None and res.get("valid"):
+                    prof_now["has_nitro"] = bool(res.get("has_nitro", False))
+                    try:
+                        prof_now["premium_type"] = int(res.get("premium_type") or 0)
+                    except (TypeError, ValueError):
+                        prof_now["premium_type"] = 0
+                    try:
+                        from config import save_config
+                        save_config(config_data)
+                    except Exception:
+                        pass
+                    try:
+                        refresh_list()  # Cập nhật nhãn Nitro trong danh sách Acc
+                    except Exception:
+                        pass
+
+                if bool(prof_now.get("has_nitro", False)):
+                    # Co Nitro (ket qua moi hoac da luu tu truoc) -> mo thu vien
+                    _launch_library()
+                elif error:
+                    messagebox.showwarning(
+                        language.t("common.warning_title"),
+                        language.t("profiles_panel.emoji_check_failed", error))
+                else:
+                    messagebox.showinfo(
+                        language.t("profiles_panel.nitro_required_title") or "Thông báo",
+                        language.t("profiles_panel.nitro_required") or
+                        "Tính năng Emoji chỉ dành cho tài khoản có Nitro. 👉 Acc này sẽ chỉ dùng emoji Free của máy chủ đang chat, không dùng server nào khác.",
+                    )
+
+            def _worker():
+                res = None
+                error = ""
+                try:
+                    from discord.token_validator import validate_multiple_tokens
+                    results = validate_multiple_tokens([token])
+                    res = results[0] if results else None
+                    if res is not None and not res.get("valid"):
+                        error = str(res.get("error") or "unknown")
+                        res = None  # Giữ Nitro đã lưu, không ghi đè bằng kết quả lỗi
+                except Exception as e:
+                    error = str(e)
+                    res = None
+                try:
+                    if win.winfo_exists():
+                        win.after(0, lambda: _finish(res, error))
+                except Exception:
+                    pass
+
+            threading.Thread(target=_worker, daemon=True).start()
+
         btns = tk.Frame(win, bg=t["bg_panel"])
         btns.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 10))
 
@@ -883,6 +1033,13 @@ def create_profiles_panel(parent, on_profile_changed=None):
             _mk(language.t("profiles_panel.chat_copy_default"), copy_default)
             _mk(language.t("profiles_panel.chat_use_default"), use_default)
 
+        btn_emoji = _mk(language.t("profiles_panel.emoji_btn"), _open_emoji_library,
+                        "secondary")
+        # Nhãn trạng thái kiểm token nền khi bấm Emoji (rỗng khi idle)
+        lbl_emoji_status = tk.Label(btns, text="", bg=t["bg_panel"],
+                                    fg=t["text_muted"], font=FONT_CAPTION)
+        lbl_emoji_status.pack(side="left", padx=(0, 6))
+
         spacer = tk.Frame(btns, bg=t["bg_panel"])
         spacer.pack(side="left", fill="x", expand=True)
         _mk(language.t("profiles_panel.done"), win.destroy)
@@ -914,7 +1071,30 @@ def create_profiles_panel(parent, on_profile_changed=None):
         if not token:
             messagebox.showwarning(language.t("common.warning_title"),
                                    language.t("profiles_panel.check_token_empty"))
-            return
+
+        try:
+            from discord.token_validator import validate_multiple_tokens
+            results = validate_multiple_tokens([token])
+            if results:
+                res = results[0]
+                prof = current_profile()
+                prof["has_nitro"] = bool(res.get("has_nitro", False))
+                try:
+                    prof["premium_type"] = int(res.get("premium_type") or 0)
+                except (TypeError, ValueError):
+                    prof["premium_type"] = 0
+                try:
+                    from config import save_config
+                    save_config(config_data)
+                except Exception:
+                    pass
+                try:
+                    refresh_list()  # Cập nhật nhãn Nitro trong danh sách Acc
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         try:
             from ui.main_page import validate_token_list
         except ImportError:

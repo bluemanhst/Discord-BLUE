@@ -328,16 +328,89 @@ class _FakeLog:
 
 
 _ne_err = ""
+_ge_mod = None
+_ge_orig = None
 try:
+    import discord.guild_emojis as _ge_mod
+    _ge_orig = (_ge_mod.load_disk_cache,
+                _ge_mod.ensure_emoji_library,
+                _ge_mod.fetch_emojis_for_channel)
+    _ge_mod.load_disk_cache = lambda *a, **k: None
+    _ge_mod.ensure_emoji_library = lambda *a, **k: None
+    _ge_mod.fetch_emojis_for_channel = lambda *a, **k: {}
     _bot_mod.run_single_account(
         "tok_test", 1, ["123"], 60, 90, ["hello"], _FakeLog(), {}, [False],
         run_id=99, generation_ref=[99], profile_name="Acc 1",
         channels=[{"id": "123", "cd_min": 1, "cd_max": 1, "messages": ["x"]}])
 except NameError as e:
     _ne_err = str(e)
+finally:
+    if _ge_mod is not None and _ge_orig is not None:
+        (_ge_mod.load_disk_cache, _ge_mod.ensure_emoji_library,
+         _ge_mod.fetch_emojis_for_channel) = _ge_orig
 check("run_single_account khong NameError (default_messages/schedule...)",
       not _ne_err, detail=_ne_err)
 calls.clear()
+
+# --- 3d. thu vien emoji Nitro: merge uu tien guild kenh + cache dia TTL ---
+import discord.guild_emojis as _ge
+check("merge: emoji guild kenh thang khi trung ten",
+      _ge.merge_emoji_maps({"x": {"id": "1", "animated": False, "guild_id": "other"}},
+                            prefer_guild_id="other")["x"]["id"] == "1"
+      and _ge.merge_emoji_maps(None, prefer_guild_id="99") == {}
+      and _ge.merge_emoji_maps({"a": {"id": "2"}}, prefer_guild_id=None) == {"a": {"id": "2"}})
+_tmp_emoji = os.path.join(_tmp_dir, "emoji_cache.json")
+_ge.save_disk_cache({"y": {"id": "9", "animated": True}}, path=_tmp_emoji)
+check("disk cache: ghi -> doc duoc (con fresh)",
+      (_ge.load_disk_cache(path=_tmp_emoji) or {}).get("y", {}).get("id") == "9")
+check("disk cache: het han -> None",
+      _ge.load_disk_cache(max_age=-1, path=_tmp_emoji) is None)
+
+# --- 3e. chon server dung emoji: uu tien + normalize profile ---
+_orig_get = _ge.get_guild_id
+_orig_fetch = _ge.fetch_emojis_for_guilds
+try:
+    _FAKE = {"g1": {"test": {"id": "1", "animated": False, "guild_id": "g1"}},
+             "g2": {"test": {"id": "2", "animated": True, "guild_id": "g2"},
+                    "rieng": {"id": "3", "animated": False, "guild_id": "g2"}}}
+    _ge.get_guild_id = lambda cid, tok: "g1"
+    # fetch fake giu thu tu: guild dau tien thang khi trung ten
+    def _fake_fetch(tok, gids, **k):
+        out = {}
+        for g in (gids or []):
+            for n, i in _FAKE.get(str(g), {}).items():
+                if n not in out:
+                    out[n] = dict(i)
+        return out
+    _ge.fetch_emojis_for_guilds = _fake_fetch
+    _m1 = _ge.build_selected_emoji_map("tok", "ch1", ["g2"])
+    check("chon server: guild channel (g1) thang khi trung :test:",
+          _m1.get("test", {}).get("id") == "1"
+          and _m1.get("rieng", {}).get("id") == "3")
+    _ge.get_guild_id = lambda cid, tok: None
+    _m2 = _ge.build_selected_emoji_map("tok", None, ["g2", "g1"])
+    check("chon server: tick truoc (g2) thang khi khong co channel",
+          _m2.get("test", {}).get("id") == "2")
+    check("chon server: url avatar + rong",
+          _ge.guild_icon_url("g", None) is None
+          and _ge.guild_icon_url("g", "abc", size=64).endswith("/abc.png?size=64")
+          and _ge.guild_icon_url("g", "a_xyz").endswith("/a_xyz.gif?size=64")
+          and _ge.fetch_emojis_for_guilds("t", []) == {}
+          and _ge.build_selected_emoji_map("", None, []) == {})
+finally:
+    _ge.get_guild_id = _orig_get
+    _ge.fetch_emojis_for_guilds = _orig_fetch
+import profiles as _prof_mod
+_p = _prof_mod.normalize_profile({"name": "Acc 9",
+                                  "emoji_guilds": ["g1", "g1", " ", "g2"]},
+                                 index=9)
+check("profile: normalize giu emoji_guilds (dedup + bo rong)",
+      _p.get("emoji_guilds") == ["g1", "g2"])
+_p2 = _prof_mod.normalize_profile({"name": "Acc cu"}, index=1)
+check("profile: config cu thieu emoji_guilds -> []",
+      _p2.get("emoji_guilds") == [])
+check("profile: default moi co emoji_guilds",
+      _prof_mod.default_profile().get("emoji_guilds") == [])
 
 # --- 4. i18n: moi key dung trong code phai dich duoc o ca 2 ngon ngu ---
 import json

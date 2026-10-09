@@ -59,6 +59,7 @@ def validate_token(token):
                 "flags": user_data.get("flags", 0),
                 "premium_type": user_data.get("premium_type", 0),
                 "public_flags": user_data.get("public_flags", 0),
+                "has_nitro": has_nitro(user_data.get("premium_type", 0)),
                 "token_type": determine_token_type(token)
             }
         elif response.status_code == 401:
@@ -82,6 +83,19 @@ def validate_token(token):
             "valid": False,
             "error": f"Lỗi kết nối: {str(e)}"
         }
+
+
+def has_nitro(premium_type):
+    """Acc có Nitro không (theo premium_type từ GET /users/@me).
+
+    Discord: 0 = không Nitro, 1 = Nitro Classic, 2 = Nitro,
+    3 = Nitro Basic. Cả 3 loại đều dùng được emoji cross-server.
+    Thiếu/sai kiểu -> False (an toàn: về nhánh free).
+    """
+    try:
+        return int(premium_type) in (1, 2, 3)
+    except (TypeError, ValueError):
+        return False
 
 
 def determine_token_type(token):
@@ -178,3 +192,18 @@ def check_token_age(user_data):
         }
     except:
         return {"age_days": "Unknown", "created_at": "Unknown"}
+
+
+def nitro_label(premium_type):
+    # Return human-readable Nitro type label.
+    try:
+        pt = int(premium_type)
+    except (TypeError, ValueError):
+        return "Unknown"
+    mapping = {
+        0: "None",
+        1: "Classic",
+        2: "Plus",
+        3: "Basic",
+    }
+    return mapping.get(pt, "Unknown")

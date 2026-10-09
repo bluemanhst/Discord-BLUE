@@ -34,7 +34,7 @@ def validate_token_list(tokens):
         tokens: Danh sách token cần kiểm tra
     """
     try:
-        from discord.token_validator import validate_multiple_tokens, get_avatar_url
+        from discord.token_validator import validate_multiple_tokens, get_avatar_url, nitro_label
     except ImportError:
         messagebox.showerror(
             language.t("common.error_title"),
@@ -248,7 +248,8 @@ def validate_token_list(tokens):
             line2 = (f"Email: {result.get('email', 'N/A')}"
                      f"  |  Verified: {yes_no[bool(result.get('verified'))]}"
                      f"  |  2FA: {on_off[bool(result.get('mfa_enabled'))]}"
-                     f"  |  Type: {result.get('token_type', 'User')}")
+                     f"  |  Type: {result.get('token_type', 'User')}"
+                     f"  |  Nitro: {nitro_label(result.get('premium_type', 0))}")
 
             tk.Label(
                 frame_details,
