@@ -5,7 +5,7 @@
 import tkinter as tk
 from utils.theme import (
     get_theme, create_card_frame, create_section_header,
-    create_styled_button, create_styled_entry,
+    create_styled_button, create_styled_entry, create_styled_checkbutton,
     FONT_BODY, FONT_BODY_BOLD, FONT_CAPTION, FONT_SECTION
 )
 from config import config_data
@@ -100,17 +100,11 @@ def create_features_page(root, profile_provider=None):
         card, inner = create_card_frame(frame_content, padx=20, pady=16)
         card.pack(fill="x", pady=(0, 14))
 
-        chk = tk.Checkbutton(
+        chk = create_styled_checkbutton(
             inner,
             text=title,
             variable=is_checked_var,
-            bg=t["bg_panel"],
-            fg=t["text_primary"],
-            selectcolor=t["bg_input"],
-            activebackground=t["bg_panel"],
-            activeforeground=t["text_primary"],
-            font=FONT_SECTION,
-            cursor="hand2"
+            font=FONT_SECTION
         )
         chk.pack(anchor="w")
 
@@ -349,17 +343,11 @@ def create_features_page(root, profile_provider=None):
     ]
 
     for label_key, sound_var in sound_options:
-        chk_opt = tk.Checkbutton(
+        chk_opt = create_styled_checkbutton(
             body_sound,
             text=language.t(label_key),
             variable=sound_var,
-            bg=t["bg_panel"],
-            fg=t["text_secondary"],
-            selectcolor=t["bg_input"],
-            activebackground=t["bg_panel"],
-            activeforeground=t["text_primary"],
-            font=FONT_BODY,
-            cursor="hand2"
+            font=FONT_BODY
         )
         chk_opt.pack(anchor="w", pady=2)
 

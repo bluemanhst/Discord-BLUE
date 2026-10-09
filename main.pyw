@@ -333,10 +333,21 @@ def pump_tray_commands():
 # ===== KHỞI TẠO ROOT WINDOW =====
 root = tk.Tk()
 root.withdraw()
-root.title(f"{language.t('app_name')} by bluemanhst")
+root.title(f"{language.t('app_name')} -- ~/main")
 root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 root.minsize(MIN_WIDTH, MIN_HEIGHT)
 root.configure(bg=get_theme()["bg_app"])
+
+# Titlebar toi mau (DWM immersive dark) - Windows 10/11; neu khong ho tro thi bo qua
+try:
+    import ctypes
+    _hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+    if _hwnd:
+        _val = ctypes.c_int(1)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            _hwnd, 20, ctypes.byref(_val), ctypes.sizeof(_val))
+except Exception:
+    pass
 
 # ===== SPLASH SCREEN =====
 # Chỉ hiện splash trước, ẩn hẳn cửa sổ chính cho tới khi splash đóng xong
@@ -364,6 +375,9 @@ if os.path.exists(APP_ICON):
         root.iconbitmap(APP_ICON)
     except Exception:
         pass  # Không load được icon thì bỏ qua, không ảnh hưởng tool
+
+# ===== TẠO STATUS BAR (pack truoc sidebar de full-width, giong Roblox) =====
+frame_footer = create_footer(root, bot_running)
 
 # ===== TẠO NAVIGATION BAR =====
 nav_bar = create_navigation_bar(root, show_main_page, show_features_page,
@@ -454,9 +468,6 @@ frame_dashboard_page = create_dashboard_page(root)
 # Trang cài đặt (truyền tray_manager để quản lý icon khay hệ thống)
 (frame_settings_page, var_tray_enabled, var_startup_enabled, _) = create_settings_page(
     root, bot_running, stop_trigger, tray_manager)
-
-# ===== TẠO FOOTER =====
-frame_footer = create_footer(root)
 
 # ===== KẾT NỐI HÀNG ĐỢI LOG + LỆNH TRAY VỚI LUỒNG CHÍNH =====
 root.after(100, pump_log_queue)

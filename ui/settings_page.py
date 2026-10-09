@@ -9,6 +9,7 @@ from tkinter import messagebox, ttk
 from utils.tray import TRAY_AVAILABLE
 from utils.theme import (
     get_theme, create_card_frame, create_section_header,
+    create_styled_checkbutton,
     FONT_BODY, FONT_BODY_BOLD, FONT_CAPTION
 )
 from config import config_data, save_config
@@ -51,18 +52,12 @@ def create_settings_page(root, bot_running_ref, stop_trigger_func, tray_manager=
     def toggle_startup_wrapper():
         toggle_startup(var_startup_enabled)
 
-    chk_startup = tk.Checkbutton(
+    chk_startup = create_styled_checkbutton(
         sys_inner,
         text=language.t("settings_page.startup_enabled"),
         variable=var_startup_enabled,
-        bg=t["bg_panel"],
-        fg=t["text_primary"],
-        selectcolor=t["bg_input"],
-        activebackground=t["bg_panel"],
-        activeforeground=t["text_primary"],
-        font=FONT_BODY_BOLD,
         command=toggle_startup_wrapper,
-        cursor="hand2"
+        font=FONT_BODY_BOLD
     )
     chk_startup.pack(anchor="w", pady=(4, 2))
 
@@ -96,18 +91,12 @@ def create_settings_page(root, bot_running_ref, stop_trigger_func, tray_manager=
         elif tray_manager is not None:
             tray_manager.stop()
 
-    chk_tray = tk.Checkbutton(
+    chk_tray = create_styled_checkbutton(
         sys_inner,
         text=language.t("settings_page.tray_enabled"),
         variable=var_tray_enabled,
-        bg=t["bg_panel"],
-        fg=t["text_primary"],
-        selectcolor=t["bg_input"],
-        activebackground=t["bg_panel"],
-        activeforeground=t["text_primary"],
-        font=FONT_BODY_BOLD,
         command=on_tray_toggle,
-        cursor="hand2"
+        font=FONT_BODY_BOLD
     )
     chk_tray.pack(anchor="w", pady=(8, 2))
 

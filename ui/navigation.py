@@ -1,113 +1,162 @@
 # ui/navigation.py
-# Navigation bar - Thanh điều hướng các trang
+# Sidebar trai - dieu huong cac trang, phong cach Roblox BLUE (pill truot animated)
 # Author: bluemanhst
 
 import tkinter as tk
-from utils.theme import get_theme, FONT_BUTTON
+from utils.theme import get_theme, draw_round_rect, FONT_BUTTON, FONT_SECTION
+from utils.anim import AnimLoop, lerp
 import language
 
 
-def create_navigation_bar(root, show_main_page, show_features_page, show_config_page, show_theme_page, show_dashboard_page, show_settings_page):
+def create_navigation_bar(root, show_main_page, show_features_page, show_config_page,
+                          show_theme_page, show_dashboard_page, show_settings_page):
     """
-    Tạo navigation bar ở trên cùng cửa sổ với phong cách thanh lịch, hiện đại.
-    Hiển thị active indicator và hover mượt mà.
-    
-    Args:
-        root: Root window
-        show_main_page: Hàm hiển thị trang chính
-        show_features_page: Hàm hiển thị trang tính năng
-        show_config_page: Hàm hiển thị trang cấu hình
-        show_theme_page: Hàm hiển thị trang theme
-        show_dashboard_page: Hàm hiển thị trang dashboard
-        show_settings_page: Hàm hiển thị trang cài đặt
-    
-    Returns:
-        Frame: Navigation bar frame
+    Tao sidebar trai (190px) voi pill indicator truot mượt khi chuyen tab.
+    Giu API cu: tra ve frame co .set_active(key) nhu navigation bar truoc day.
     """
     t = get_theme()
 
-    # Outer container with bottom subtle border
-    nav_bar = tk.Frame(root, bg=t["border_subtle"], height=52)
-    nav_bar.pack(side="top", fill="x")
+    SIDEBAR_W = 190
+    Y0 = 12           # vi tri y pill cua tab dau tien
+    ITEM_H = 34
+    STRIDE = 40
 
-    nav_inner = tk.Frame(nav_bar, bg=t["bg_sidebar"])
-    nav_inner.pack(fill="x", padx=0, pady=(0, 1))
+    nav = tk.Frame(root, bg=t["bg_sidebar"], width=SIDEBAR_W, highlightthickness=0)
+    nav.pack(side="left", fill="y")
+    nav.pack_propagate(False)
 
-    # Danh sách các nút navigation
+    # Brand header
+    header = tk.Frame(nav, bg=t["bg_sidebar"])
+    header.pack(fill="x", padx=16, pady=(16, 6))
+    tk.Label(
+        header, text="● " + language.t("app_name"),
+        bg=t["bg_sidebar"], fg=t["accent"],
+        font=("Consolas", 13, "bold"), anchor="w"
+    ).pack(anchor="w")
+    tk.Label(
+        header, text="by bluemanhst",
+        bg=t["bg_sidebar"], fg=t["text_muted"],
+        font=("Consolas", 9), anchor="w"
+    ).pack(anchor="w")
+
+    div = tk.Frame(nav, bg=t["border_subtle"], height=1)
+    div.pack(fill="x", padx=16, pady=(8, 4))
+
+    cw = SIDEBAR_W - 16  # chieu rong canvas
+
+    # Canvas chua cac tab + pill animated
+    canvas = tk.Canvas(nav, bg=t["bg_sidebar"], highlightthickness=0, bd=0,
+                       width=cw, height=6 * STRIDE + Y0)
+    canvas.pack(padx=8, pady=(4, 0), anchor="n")
+
     nav_items = [
         ("main", language.t("navigation.main"), show_main_page),
         ("features", language.t("navigation.features"), show_features_page),
         ("config", language.t("navigation.config"), show_config_page),
         ("theme", language.t("navigation.theme"), show_theme_page),
         ("dashboard", language.t("navigation.dashboard"), show_dashboard_page),
-        ("settings", language.t("navigation.settings"), show_settings_page)
+        ("settings", language.t("navigation.settings"), show_settings_page),
     ]
+    n_items = len(nav_items)
 
-    button_widgets = {}
-    active_key = ["main"]
+    state = {
+        "active": "main",
+        "hover": -1,
+        "pill_y": float(Y0),       # vi tri hien tai (animated)
+        "loop": None,
+    }
+
+    def _item_y(i):
+        return Y0 + i * STRIDE
+
+    def _redraw():
+        try:
+            canvas.delete("all")
+        except Exception:
+            return
+        # Pill active (bo goc + vien accent) - giong Roblox BLUE
+        py = state["pill_y"]
+        draw_round_rect(canvas, 4, py, cw - 4, py + ITEM_H, 8,
+                        fill=t["bg_active"], outline=t["accent"], width=1)
+        # Thanh accent ben trai
+        draw_round_rect(canvas, 8, py + 6, 12, py + ITEM_H - 6, 2,
+                        fill=t["accent"])
+        for i, (key, label, _cmd) in enumerate(nav_items):
+            iy = _item_y(i)
+            active = (key == state["active"])
+            hov = (i == state["hover"] and not active)
+            if hov:
+                draw_round_rect(canvas, 4, iy, cw - 4, iy + ITEM_H, 8,
+                                fill=t["bg_hover"])
+            color = t["text_primary"] if (active or hov) else t["text_secondary"]
+            font = FONT_SECTION if active else FONT_BUTTON
+            canvas.create_text(22, iy + ITEM_H // 2, text=label, anchor="w",
+                               font=font, fill=color)
+
+    def _hit_item(y):
+        for i in range(n_items):
+            iy = _item_y(i)
+            if iy <= y < iy + ITEM_H:
+                return i
+        return -1
+
+    def _animate_pill(target_y):
+        start = state["pill_y"]
+
+        def _step(p):
+            state["pill_y"] = lerp(start, target_y, p)
+            _redraw()
+
+        if state["loop"] is not None:
+            state["loop"].cancel()
+        state["loop"] = AnimLoop(canvas, duration_ms=220, on_step=_step)
+        state["loop"].start()
 
     def set_active(key):
-        active_key[0] = key
-        for k, btn in button_widgets.items():
+        for i, (k, _l, _c) in enumerate(nav_items):
             if k == key:
-                btn.config(
-                    bg=t["bg_panel"],
-                    fg=t["accent"],
-                    highlightbackground=t["border"],
-                    highlightcolor=t["border"]
-                )
-            else:
-                btn.config(
-                    bg=t["bg_sidebar"],
-                    fg=t["text_secondary"],
-                    highlightbackground=t["bg_sidebar"],
-                    highlightcolor=t["bg_sidebar"]
-                )
+                state["active"] = key
+                _animate_pill(float(_item_y(i)))
+                return
 
-    # Frame chứa các nút
-    btn_container = tk.Frame(nav_inner, bg=t["bg_sidebar"])
-    btn_container.pack(fill="x", padx=16, pady=8)
+    def _on_click(e):
+        i = _hit_item(e.y)
+        if i < 0:
+            return
+        key, _label, cmd = nav_items[i]
+        set_active(key)
+        try:
+            cmd()
+        except Exception:
+            pass
 
-    for key, text, cmd in nav_items:
-        def make_handler(target_key=key, target_cmd=cmd):
-            def handler():
-                set_active(target_key)
-                target_cmd()
-            return handler
+    def _on_motion(e):
+        i = _hit_item(e.y)
+        if i != state["hover"]:
+            state["hover"] = i
+            _redraw()
 
-        btn = tk.Button(
-            btn_container,
-            text=text,
-            command=make_handler(),
-            bg=t["bg_panel"] if key == "main" else t["bg_sidebar"],
-            fg=t["accent"] if key == "main" else t["text_secondary"],
-            font=FONT_BUTTON,
-            relief="flat",
-            bd=0,
-            highlightthickness=1,
-            highlightbackground=t["border"] if key == "main" else t["bg_sidebar"],
-            activebackground=t["bg_hover"],
-            activeforeground=t["text_primary"],
-            cursor="hand2",
-            padx=14,
-            pady=6
-        )
-        btn.pack(side="left", padx=3)
-        button_widgets[key] = btn
+    def _on_leave(e):
+        if state["hover"] != -1:
+            state["hover"] = -1
+            _redraw()
 
-        # Hover states for non-active buttons
-        def on_enter(e, b=btn, k=key):
-            if active_key[0] != k:
-                b.config(bg=t["bg_hover"], fg=t["text_primary"])
+    canvas.bind("<Button-1>", _on_click)
+    canvas.bind("<Motion>", _on_motion)
+    canvas.bind("<Leave>", _on_leave)
 
-        def on_leave(e, b=btn, k=key):
-            if active_key[0] != k:
-                b.config(bg=t["bg_sidebar"], fg=t["text_secondary"])
+    # Divider + thong tin duoi sidebar
+    div2 = tk.Frame(nav, bg=t["border_subtle"], height=1)
+    div2.pack(side="bottom", fill="x", padx=16, pady=(0, 8))
+    badge = tk.Frame(nav, bg=t["bg_sidebar"])
+    badge.pack(side="bottom", fill="x", padx=16, pady=12)
+    tk.Label(
+        badge, text="Discord BLUE v1.1",
+        bg=t["bg_sidebar"], fg=t["text_muted"], font=("Consolas", 9)
+    ).pack(anchor="w")
 
-        btn.bind("<Enter>", on_enter)
-        btn.bind("<Leave>", on_leave)
+    _redraw()
 
-    # Lưu hàm set_active lên nav_bar để có thể gọi từ ngoài nếu cần
-    nav_bar.set_active = set_active
-
-    return nav_bar
+    # Lưu hàm set_active lên nav de goi tu ngoai ( API cu )
+    nav.set_active = set_active
+    return nav

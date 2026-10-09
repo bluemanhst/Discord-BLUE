@@ -11,8 +11,36 @@ from tkinter import ttk
 # Professional desktop utility palettes inspired by modern developer tools
 # ==============================================================================
 THEMES = {
-    "Dragon Ball (Mặc định)": {
-        "name": "Dragon Ball (Mặc định)",
+    # Terminal Neon - phong cách Roblox BLUE (gần đen + accent xanh, bo góc)
+    "Terminal Neon": {
+        "name": "Terminal Neon",
+        "bg_app": "#0B0E13",          # Giong Roblox C_Bg - nen terminal gan den
+        "bg_sidebar": "#11161D",      # Roblox C_Panel - thanh dieu huong/statusbar
+        "bg_panel": "#151B24",        # Roblox C_Card - mat the noi dung
+        "bg_input": "#0D1015",        # O nhap re sau hon nen app
+        "bg_hover": "#19212E",        # Roblox C_RowHover
+        "bg_active": "#1E293B",       # Roblox C_RowSel
+        "border": "#2C3748",          # Roblox C_CardBorder
+        "border_subtle": "#1E2632",   # Roblox C_Border - divider tinh te
+        "border_focus": "#3B82F6",    # Roblox C_Accent
+        "text_primary": "#E6EDF3",    # Roblox C_Text
+        "text_secondary": "#8B98AB",  # Roblox C_Muted
+        "text_muted": "#5F697A",      # Roblox C_Dim
+        "accent": "#3B82F6",          # Roblox C_Accent - xanh duong neon
+        "accent_hover": "#60A5FA",    # Roblox C_AccentHover
+        "accent_active": "#2563EB",   # Bam xuong (darker)
+        "accent_text": "#FFFFFF",
+        "success": "#22C55E",         # Roblox C_Ok
+        "success_hover": "#16A34A",
+        "danger": "#EF4444",          # Roblox C_Err
+        "danger_hover": "#DC2626",
+        "info": "#38BDF8",
+        "info_hover": "#0EA5E9",
+        "log_bg": "#0A0C10",          # Terminal log toi hon nua
+        "log_fg": "#93C5FD",          # Chu terminal xanh neon
+    },
+    "Dragon Ball": {
+        "name": "Dragon Ball",
         "bg_app": "#16171D",          # Deep slate app background
         "bg_sidebar": "#121318",      # Slightly darker sidebar/header
         "bg_panel": "#1E2029",        # Clean card/panel surface
@@ -96,7 +124,7 @@ THEMES = {
 
 # Tên theme mặc định - DÙNG CHUNG cho config.py, ui/theme_page.py và main.pyw
 # (tránh mỗi nơi hardcode một chuỗi, dễ lệch nhau khi đổi tên theme)
-DEFAULT_THEME_NAME = "Dragon Ball (Mặc định)"
+DEFAULT_THEME_NAME = "Terminal Neon"
 
 # ==============================================================================
 # 2. TYPOGRAPHY SYSTEM
@@ -250,18 +278,63 @@ def configure_ttk_styles(root=None):
 # ==============================================================================
 # 5. REUSABLE UI COMPONENT HELPERS (CLEAN, PRO LOOK)
 # ==============================================================================
-def create_card_frame(parent, padx=16, pady=12):
-    """Tạo một Panel/Card phẳng, có border tinh tế, không bóng bẩy AI"""
+def _parent_bg(parent, fallback):
+    """Lay mau nen thuc te cua parent (de ve corner 'trong suot' giong backend)."""
+    try:
+        bg = parent.cget("bg")
+        if bg:
+            return bg
+    except Exception:
+        pass
+    return fallback
+
+
+def draw_round_rect(canvas, x1, y1, x2, y2, radius=10, **kw):
+    """Ve hinh chu nhat bo goc tren Canvas (smooth polygon - cong thuc pho bien)."""
+    points = [
+        x1 + radius, y1,
+        x2 - radius, y1,
+        x2, y1,
+        x2, y1 + radius,
+        x2, y2 - radius,
+        x2, y2,
+        x2 - radius, y2,
+        x1 + radius, y2,
+        x1, y2,
+        x1, y2 - radius,
+        x1, y1 + radius,
+        x1, y1,
+    ]
+    return canvas.create_polygon(points, smooth=True, **kw)
+
+
+def create_card_frame(parent, padx=16, pady=12, radius=10):
+    """Card bo goc 10px + border tinh te (giong FillCard/StrokeCard Roblox BLUE).
+
+    Canvas ve nen bo goc DUOI inner frame; corners lo mau parent -> nhin khong giong.
+    Giu nguyen API cu: tra ve (card, inner).
+    """
     t = get_theme()
-    card = tk.Frame(
-        parent,
-        bg=t["bg_panel"],
-        highlightthickness=1,
-        highlightbackground=t["border"],
-        highlightcolor=t["border"]
-    )
+    behind = _parent_bg(parent, t["bg_app"])
+    card = tk.Frame(parent, bg=behind)
+    canvas = tk.Canvas(card, bg=behind, highlightthickness=0, bd=0)
+    canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
     inner = tk.Frame(card, bg=t["bg_panel"])
     inner.pack(fill="both", expand=True, padx=padx, pady=pady)
+
+    def _redraw(event=None):
+        try:
+            w = card.winfo_width()
+            h = card.winfo_height()
+        except Exception:
+            return
+        if w < 4 or h < 4:
+            return
+        canvas.delete("all")
+        draw_round_rect(canvas, 0, 0, w - 1, h - 1, radius,
+                        fill=t["bg_panel"], outline=t["border"], width=1)
+
+    card.bind("<Configure>", lambda e: _redraw())
     return card, inner
 
 
@@ -295,77 +368,245 @@ def create_section_header(parent, title, subtitle=None):
     return header_frame
 
 
+class RoundedButton(tk.Canvas):
+    """Button bo goc 8px ve bang Canvas - phong cach DrawButton cua Roblox BLUE.
+
+    Giu nguyen API tk.Button o muc su dung thong thuong:
+    .pack/.grid, .config(command=...), .config(state=...), .config(text=...),
+    .config(width=...) (ky tu), ["state"], attribute .menu.
+    """
+
+    def __init__(self, parent, text="", command=None, variant="secondary",
+                 width=None, padx=12, pady=6, font=None, **kw):
+        self._text = text
+        self._command = command
+        self._variant = variant
+        self._state = "normal"
+        self._hover = False
+        self._width_chars = width
+        self._padx = padx
+        self._pady = pady
+        self._font = font or FONT_BUTTON
+        behind = _parent_bg(parent, get_theme()["bg_panel"])
+        px, py = self._measure()
+        self._px, self._py = px, py
+        try:
+            super().__init__(parent, width=px, height=py, bg=behind,
+                             highlightthickness=0, bd=0, cursor="hand2", **kw)
+        except TypeError:
+            super().__init__(parent)
+        self._redraw()
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<Button-1>", self._on_click)
+        self.bind("<Configure>", lambda e: self._redraw())
+
+    def _measure(self):
+        text = self._text or "W"
+        try:
+            from tkinter import font as tkfont
+            f = tkfont.Font(font=self._font)
+            tw = f.measure(text)
+            th = f.metrics("linespace")
+            if self._width_chars:
+                tw = max(tw, f.measure("0" * int(self._width_chars)))
+        except Exception:
+            tw = max(len(text), 1) * 8
+            th = 16
+            if self._width_chars:
+                tw = max(tw, int(self._width_chars) * 8)
+        return tw + 2 * self._padx + 8, th + 2 * self._pady + 4
+
+    def _colors(self):
+        t = get_theme()
+        v = self._variant
+        if self._state == "disabled":
+            return t["bg_sidebar"], t["border_subtle"], t["text_muted"]
+        if v == "primary":
+            fill = t["accent_hover"] if self._hover else t["accent"]
+            return fill, t["accent_hover"], t["accent_text"]
+        if v == "danger":
+            if self._hover:
+                return "#2D161C", t["danger"], t["danger"]
+            return t["bg_panel"], "#783237", t["danger"]
+        if v == "success":
+            fill = t["success_hover"] if self._hover else t["success"]
+            return fill, t["success"], "#FFFFFF"
+        if v == "ghost":
+            fill = t["bg_hover"] if self._hover else _parent_bg(self.master, t["bg_panel"])
+            return fill, t["border"], t["text_secondary"]
+        # secondary / neutral
+        if self._hover:
+            return t["bg_hover"], t["accent"], t["text_primary"]
+        return t["bg_panel"], t["border"], t["text_primary"]
+
+    def _redraw(self, event=None):
+        try:
+            w = int(self.winfo_width()) or self._px
+            h = int(self.winfo_height()) or self._py
+        except Exception:
+            w, h = self._px, self._py
+        if w < 4 or h < 4:
+            return
+        try:
+            self.delete("all")
+        except Exception:
+            return
+        fill, border, fg = self._colors()
+        radius = min(8, h // 2)
+        draw_round_rect(self, 0, 0, w - 1, h - 1, radius,
+                        fill=fill, outline=border, width=1)
+        self.create_text(w // 2, h // 2, text=self._text, font=self._font, fill=fg)
+
+    def config(self, cnf=None, **kw):
+        if isinstance(cnf, dict):
+            kw = {**cnf, **kw}
+        redraw = False
+        if "state" in kw:
+            self._state = str(kw.pop("state"))
+            redraw = True
+        if "command" in kw:
+            self._command = kw.pop("command")
+        if "text" in kw:
+            self._text = str(kw.pop("text"))
+            self._px, self._py = self._measure()
+            redraw = True
+        if "width" in kw:
+            self._width_chars = kw.pop("width")
+            self._px, self._py = self._measure()
+            redraw = True
+        if kw:
+            try:
+                super().config(**kw)
+            except Exception:
+                pass
+        if redraw:
+            self._redraw()
+
+    configure = config
+
+    def cget(self, key):
+        if key == "state":
+            return self._state
+        if key == "command":
+            return self._command
+        if key == "text":
+            return self._text
+        try:
+            return super().cget(key)
+        except Exception:
+            return ""
+
+    def __getitem__(self, key):
+        return self.cget(key)
+
+    def _on_enter(self, e):
+        if self._state != "disabled" and not self._hover:
+            self._hover = True
+            self._redraw()
+
+    def _on_leave(self, e):
+        if self._hover:
+            self._hover = False
+            self._redraw()
+
+    def _on_click(self, e):
+        if self._state == "disabled":
+            return
+        if callable(self._command):
+            self._command()
+
+
 def create_styled_button(parent, text, command, variant="secondary", width=None, padx=12, pady=6):
     """
-    Tạo button có phân cấp rõ ràng (primary, secondary, danger, success, ghost)
-    với hover state tự nhiên và border tinh tế.
+    Tạo button bo goc (Canvas) có phân cấp rõ ràng (primary, secondary, danger,
+    success, ghost) với hover state tự nhiên - phong cach Roblox BLUE.
     """
+    return RoundedButton(parent, text=text, command=command, variant=variant,
+                         width=width, padx=padx, pady=pady)
+
+
+def create_styled_checkbutton(parent, text="", variable=None, command=None,
+                              font=None, **_ignored):
+    """Toggle switch pill (giong DrawToggle Roblox BLUE) thay cho tk.Checkbutton.
+
+    API tuong thich: .pack/.grid nhu widget binh thuong; nhan de bat/tat variable
+    roi goi command. Vi du cu: tk.Checkbutton(parent, text=..., variable=...,
+    font=..., cursor="hand2") -> create_styled_checkbutton(parent, text=...,
+    variable=..., font=...).
+    """
+    from utils.anim import AnimLoop, lerp
     t = get_theme()
+    behind = _parent_bg(parent, t["bg_panel"])
+    frame = tk.Frame(parent, bg=behind, cursor="hand2")
+    pill = tk.Canvas(frame, width=38, height=20, bg=behind,
+                     highlightthickness=0, bd=0, cursor="hand2")
+    pill.pack(side="left", padx=(0, 8) if text else (0, 0))
+    if text:
+        lbl = tk.Label(frame, text=text, bg=behind, fg=t["text_primary"],
+                       font=font or FONT_BODY, cursor="hand2")
+        lbl.pack(side="left")
 
-    if variant == "primary":
-        bg_col = t["accent"]
-        fg_col = t["accent_text"]
-        hover_col = t["accent_hover"]
-        active_col = t["accent_active"]
-        border_col = t["accent"]
-    elif variant == "danger":
-        bg_col = t["danger"]
-        fg_col = "#FFFFFF"
-        hover_col = t["danger_hover"]
-        active_col = t["danger_hover"]
-        border_col = t["danger"]
-    elif variant == "success":
-        bg_col = t["success"]
-        fg_col = "#FFFFFF"
-        hover_col = t["success_hover"]
-        active_col = t["success_hover"]
-        border_col = t["success"]
-    elif variant == "ghost":
-        bg_col = t["bg_panel"]
-        fg_col = t["text_secondary"]
-        hover_col = t["bg_hover"]
-        active_col = t["bg_active"]
-        border_col = t["border"]
-    else:  # secondary (default)
-        bg_col = t["bg_hover"]
-        fg_col = t["text_primary"]
-        hover_col = t["bg_active"]
-        active_col = t["border"]
-        border_col = t["border"]
+    state = {"frac": 1.0 if (variable and variable.get()) else 0.0,
+             "animating": False, "loop": None}
 
-    btn = tk.Button(
-        parent,
-        text=text,
-        command=command,
-        bg=bg_col,
-        fg=fg_col,
-        font=FONT_BUTTON,
-        relief="flat",
-        bd=0,
-        highlightthickness=1,
-        highlightbackground=border_col,
-        highlightcolor=t["border_focus"],
-        activebackground=active_col,
-        activeforeground=fg_col,
-        cursor="hand2",
-        padx=padx,
-        pady=pady
-    )
-    if width:
-        btn.config(width=width)
+    def _set_knob(frac):
+        state["frac"] = frac
+        try:
+            pill.delete("all")
+        except Exception:
+            return
+        on = frac >= 0.5
+        fill = t["accent"] if on else t["bg_input"]
+        border = t["accent"] if on else t["border"]
+        draw_round_rect(pill, 1, 1, 36, 18, 9, fill=fill, outline=border, width=1)
+        cx = 10.0 + 18.0 * frac
+        pill.create_oval(cx - 6, 4, cx + 6, 16, fill="#FFFFFF", outline="")
 
-    def on_enter(e):
-        if btn["state"] != "disabled":
-            btn.config(bg=hover_col)
+    def _draw():
+        _set_knob(1.0 if (variable and variable.get()) else 0.0)
 
-    def on_leave(e):
-        if btn["state"] != "disabled":
-            btn.config(bg=bg_col)
+    def _on_var_change(*_):
+        # Thay doi tu ben ngoai (reload profile...) -> ve ngay, khong anim
+        if not state["animating"]:
+            _draw()
 
-    btn.bind("<Enter>", on_enter)
-    btn.bind("<Leave>", on_leave)
+    def _toggle(*_):
+        if variable is None:
+            if command:
+                command()
+            return
+        target = 0.0 if variable.get() else 1.0
+        variable.set(not variable.get())
+        if command:
+            command()
+        start = state["frac"]
+        state["animating"] = True
 
-    return btn
+        def _step(p):
+            _set_knob(lerp(start, target, p))
+
+        def _done():
+            state["animating"] = False
+            _set_knob(target)
+
+        state["loop"] = AnimLoop(frame, duration_ms=120, on_step=_step, on_done=_done)
+        state["loop"].start()
+
+    if variable is not None:
+        try:
+            variable.trace_add("write", _on_var_change)
+        except Exception:
+            pass
+
+    widgets = [frame, pill]
+    if text:
+        widgets.append(lbl)
+    for w in widgets:
+        w.bind("<Button-1>", lambda e: _toggle())
+
+    _draw()
+    return frame
 
 
 def create_styled_entry(parent, width=None):

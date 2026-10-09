@@ -108,6 +108,18 @@ class _Widget:
     def image_create(self, *a, **k):
         return 0
 
+    def create_rectangle(self, *a, **k):
+        return 1
+
+    def create_polygon(self, *a, **k):
+        return 1
+
+    def create_text(self, *a, **k):
+        return 1
+
+    def create_oval(self, *a, **k):
+        return 1
+
     def winfo_children(self):
         return []
 
