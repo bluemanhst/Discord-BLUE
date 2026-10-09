@@ -3,18 +3,99 @@
 # KHÔNG đổi nội dung gửi đi — chỉ dùng cho Xem trước.
 # Author: bluemanhst
 
+import json
 import re
 
 # Emoji copy từ bản chat Discord: <:name:id> hoặc <a:name:id> (animated)
 _RE_EMOJI_ID = re.compile(r"<a?:([A-Za-z0-9_]{2,32}):(\d{10,})>")
 # Emoji chỉ có tên (nhập tay): :name: — không khớp số giờ "10:30", URL "https:"
 # Lookbehind loai '<' de khong match :name: ben trong <:name:id> co san
-_RE_EMOJI_NAME = re.compile(r"(?<![\w:<]):([A-Za-z0-9_]{2,32}):(?![\w:])")
+# Char class co them '+' va '-' (cuoi, literal) de ho tro :+1: / :-1: cua Discord
+_RE_EMOJI_NAME = re.compile(r"(?<![\w:<]):([A-Za-z0-9_+\-]{2,32}):(?![\w:])")
 _RE_CODE = re.compile(r"`([^`\n]+)`")
 _RE_BOLD = re.compile(r"\*\*([^\*\n]+)\*\*")
 _RE_STRIKE = re.compile(r"~~([^~\n]+)~~")
 _RE_UNDER = re.compile(r"__([^_\n]+)__")
 _RE_ITALIC = re.compile(r"(?<!\*)\*([^*\n]+)\*(?!\*)")
+
+# Fallback: shortcode số kiểu Discord Unicode (không cần guild emoji).
+# Nếu không tra thấy emoji trong map, các tên dưới đây tự đổi thành chữ số.
+_NUMERIC_SHORTNAMES = {
+    "zero": "0", "one": "1", "two": "2", "three": "3",
+    "four": "4", "five": "5", "six": "6", "seven": "7",
+    "eight": "8", "nine": "9", "ten": "10",
+    "keycap_ten": "10",
+}
+
+# ===== EMOJI GỐC UNICODE CỦA DISCORD (không cần guild/network) =====
+# Bảng shortcode -> ký tự emoji thật (vd "face_holding_back_tears" -> 🥹).
+# Load lazy 1 lần/process từ assets/emoji_unicode.json (bundle trong EXE).
+# Dùng khi :name: không phải custom emoji của server -> gửi/preview hiện icon.
+_UNICODE_EMOJI = None  # cache {name_lower: char}
+
+
+def _load_unicode_emoji():
+    """Đọc assets/emoji_unicode.json 1 lần, trả {name_lower: char}. Lỗi -> {}."""
+    global _UNICODE_EMOJI
+    if _UNICODE_EMOJI is not None:
+        return _UNICODE_EMOJI
+    data = {}
+    try:
+        from utils.paths import resource_path
+        path = resource_path("assets", "emoji_unicode.json")
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, dict):
+            for name, char in raw.items():
+                if isinstance(name, str) and isinstance(char, str) and char:
+                    data[name.lower()] = char
+    except Exception:
+        data = {}
+    _UNICODE_EMOJI = data
+    return _UNICODE_EMOJI
+
+
+def unicode_emoji(name):
+    """Tra ký tự emoji gốc theo shortcode (không phân biệt hoa/thường).
+
+    Trả về char (vd '🥹') nếu `:name:` là emoji Unicode của Discord, else None.
+    Thuần O(1) sau lần load đầu — không network, không lag.
+    """
+    if not name:
+        return None
+    return _load_unicode_emoji().get(str(name).lower())
+
+
+# CDN Twemoji (ảnh PNG màu) — render preview cho emoji gốc (Tkinter không tô màu).
+# jdecked/twemoji là bản fork duy trì của Twitter Twemoji (MIT).
+_TWEMOJI_CDN = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72"
+
+
+def twemoji_url(char, size=None):
+    """URL ảnh PNG màu (Twemoji) cho 1 ký tự emoji Unicode.
+
+    Chuyển ký tự -> codepoint hex thường, bỏ U+FE0F (variation selector),
+    nhiều codepoint (ZWJ/skin-tone) nối bằng '-'. Trả None nếu không phải emoji.
+    Dùng cho PREVIEW (Tkinter Text không render được color emoji).
+    """
+    if not char:
+        return None
+    cps = []
+    for ch in str(char):
+        cp = ord(ch)
+        if cp == 0xFE0F:      # bỏ variation selector-16
+            continue
+        if cp == 0x200D:      # giữ ZWJ trong chuỗi nối
+            cps.append(cp)
+            continue
+        cps.append(cp)
+    if not cps:
+        return None
+    hexed = "-".join("%x" % c for c in cps)
+    url = f"{_TWEMOJI_CDN}/{hexed}.png"
+    if size:
+        url += f"?size={size}"
+    return url
 
 # Thứ tự ưu tiên khi trùng vị trí bắt: code > bold > strike > underline > italic > emoji
 _PATTERNS = (
@@ -91,17 +172,32 @@ def resolve_emoji_shortcodes(text, emoji_map):
         emoji_map: {name_lower: {"id": str, "animated": bool}}
 
     Returns:
-        str: chuỗi đã convert; name không có trong map -> giữ nguyên.
+        str: chuỗi đã convert theo thứ tự ưu tiên:
+            1) custom emoji có ID trong emoji_map (guild);
+            2) shortcode số (:two: -> 2);
+            3) emoji gốc Unicode của Discord (:smile: -> 😄, :+1: -> 👍);
+            4) không match gì -> giữ nguyên :name:.
     """
-    if not emoji_map or not text:
+    if not text:
         return str(text if text is not None else "")
 
     def _sub(m):
         name = m.group(1)
-        info = emoji_map.get(name.lower())
-        if not info or not info.get("id"):
-            return m.group(0)
-        prefix = "<a:" if info.get("animated") else "<:"
-        return f"{prefix}{name}:{info['id']}>"
+        # 1) Ưu tiên custom emoji có ID trong map (guild).
+        info = (emoji_map or {}).get(name.lower())
+        if info and info.get("id"):
+            prefix = "<a:" if info.get("animated") else "<:"
+            return f"{prefix}{name}:{info['id']}>"
+        # 2) Fallback: shortcode số kiểu Discord -> chữ số (không cần emoji).
+        num = _NUMERIC_SHORTNAMES.get(name.lower())
+        if num is not None:
+            return num
+        # 3) Fallback: emoji gốc Unicode của Discord -> ký tự emoji thật.
+        #    (vd :smile: -> 😄, :face_holding_back_tears: -> 🥹, :+1: -> 👍)
+        uni = unicode_emoji(name)
+        if uni:
+            return uni
+        # 4) Không match gì -> giữ nguyên :name:
+        return m.group(0)
 
     return _RE_EMOJI_NAME.sub(_sub, str(text))

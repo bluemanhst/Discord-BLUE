@@ -700,6 +700,61 @@ def create_profiles_panel(parent, on_profile_changed=None):
 
             threading.Thread(target=_work, daemon=True).start()
 
+
+        # ===== Emoji gốc Unicode -> ảnh Twemoji (màu) cho preview =====
+        _uni_bytes = {}     # char -> bytes anh Twemoji da tai
+        _uni_photos = {}    # char -> PhotoImage (giu reference)
+        _uni_pending = set()
+
+        def _uni_photo(char):
+            """PhotoImage Twemoji cho 1 ký tự emoji gốc (cache). None nếu chưa có."""
+            photo = _uni_photos.get(char)
+            if photo is not None:
+                return photo
+            data = _uni_bytes.get(char)
+            if data is None:
+                return None
+            try:
+                import io
+                from PIL import Image, ImageTk
+                img = Image.open(io.BytesIO(data))
+                img = img.resize((32, 32), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                _uni_photos[char] = photo
+                return photo
+            except Exception:
+                return None
+
+        def _fetch_uni_async(char):
+            """Tải ảnh Twemoji (CDN) trong thread nền; xong -> render lại."""
+            if not char or char in _uni_pending or char in _uni_bytes:
+                return
+            try:
+                from utils.chat_markup import twemoji_url
+                url = twemoji_url(char)
+            except Exception:
+                url = None
+            if not url:
+                return
+            _uni_pending.add(char)
+
+            def _work():
+                try:
+                    import requests
+                    r = requests.get(url, timeout=6)
+                    if r.status_code == 200 and r.content:
+                        _uni_bytes[char] = r.content
+                except Exception:
+                    pass
+                _uni_pending.discard(char)
+                try:
+                    if win.winfo_exists():
+                        win.after(0, _render_preview)
+                except Exception:
+                    pass
+
+            threading.Thread(target=_work, daemon=True).start()
+
         def _render_preview(*_a):
             try:
                 if not win.winfo_exists():
@@ -731,8 +786,27 @@ def create_profiles_panel(parent, on_profile_changed=None):
                         else:
                             if eid:
                                 _fetch_img_async(eid, animated)
-                            # Chua tra duoc (kho load/guild loi) -> giu text, mau do
-                            preview.insert("end", f":{name}:", ("unknown_emoji",))
+                            # Emoji goc Unicode cua Discord -> hien anh Twemoji MAU
+                            # (Tkinter khong to duoc color emoji). Uu tien anh; chua
+                            # tai xong -> tam hien :name: cho toi khi anh ve.
+                            uni = None
+                            if stype == "emoji_name":
+                                try:
+                                    from utils.chat_markup import unicode_emoji
+                                    uni = unicode_emoji(name)
+                                except Exception:
+                                    uni = None
+                            if uni:
+                                uph = _uni_photo(uni)
+                                if uph is not None:
+                                    preview.image_create("end", image=uph)
+                                else:
+                                    _fetch_uni_async(uni)
+                                    # Cho anh ve: tam hien :name: (khong chen ky tu tho)
+                                    preview.insert("end", f":{name}:", ("unknown_emoji",))
+                            else:
+                                # Khong phai emoji goc / chua tra duoc -> giu text, mau do
+                                preview.insert("end", f":{name}:", ("unknown_emoji",))
             finally:
                 try:
                     preview.config(state="disabled")

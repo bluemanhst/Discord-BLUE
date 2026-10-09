@@ -309,6 +309,39 @@ check("resolve: map rong / text khac giu nguyen",
       resolve_emoji_shortcodes(":emoji_11:", {}) == ":emoji_11:"
       and resolve_emoji_shortcodes("**bold** ok", _MAP) == "**bold** ok")
 
+# --- 3b3. fallback emoji goc Unicode cua Discord (khong can guild) ---
+# Luu y: ten test khong chua ky tu emoji (console cp1252 khong in duoc).
+from utils.chat_markup import unicode_emoji as _uni
+check("unicode: :smile: -> emoji goc (khong can guild)",
+      resolve_emoji_shortcodes("hi :smile: !", {}) == "hi 😄 !")
+check("unicode: :face_holding_back_tears: -> emoji goc",
+      resolve_emoji_shortcodes(":face_holding_back_tears:", {}) == "🥹")
+check("unicode: :+1: -> thumbup / :-1: -> thumbdown (regex mo rong dau +-)",
+      resolve_emoji_shortcodes(":+1: :-1:", {}) == "👍 👎")
+check("unicode: :joy: / :rofl: / :100:",
+      resolve_emoji_shortcodes(":joy: :rofl: :100:", {}) == "😂 🤣 💯")
+check("unicode: uu tien custom emoji hon unicode (cung ten)",
+      resolve_emoji_shortcodes(":smile:", {"smile": {"id": "333333333333333333", "animated": False}})
+      == "<:smile:333333333333333333>")
+check("unicode: khong phai emoji -> giu nguyen (khong lam vo text thuong)",
+      resolve_emoji_shortcodes(":emoji_11: :khong_phai_emoji:", {}) == ":emoji_11: :khong_phai_emoji:")
+check("unicode: unicode_emoji() tra dung / ngoai danh sach -> None",
+      _uni("smile") == "😄" and _uni("khong ton tai") is None
+      and _uni("") is None)
+
+# --- 3b4. twemoji_url: ky tu Unicode -> URL anh mau cho preview ---
+from utils.chat_markup import twemoji_url as _tw
+check("twemoji: :rofl: -> 1f923.png",
+      _tw("🤣").endswith("/1f923.png"))
+check("twemoji: :smile: -> 1f604.png",
+      _tw("😄").endswith("/1f604.png"))
+check("twemoji: :+1: (U+1F44D) -> 1f44d.png",
+      _tw("👍").endswith("/1f44d.png"))
+check("twemoji: bo variation selector FE0F (U+2764 FE0F -> 2764)",
+      _tw("❤️").endswith("/2764.png") and "\ufe0f" not in _tw("❤️"))
+check("twemoji: None / rong -> None",
+      _tw("") is None and _tw(None) is None)
+
 # --- 3c. regression: run_single_account that that NameError (5 bien thieu sau refactor) ---
 # Truoc day 5 bien (default_messages/schedule_*/smart_templates) bi mat khi
 # refactor song song -> thread chay that bi NameError ngay, bot khong gui gi.

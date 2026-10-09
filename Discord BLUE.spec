@@ -5,7 +5,7 @@ a = Analysis(
     ['main.pyw'],
     pathex=[],
     binaries=[],
-    datas=[('assets/discord_logo.png', 'assets'), ('assets/facebook_logo.png', 'assets'), ('assets/logo_discord_blue.ico', 'assets'), ('assets/logo_blue_labs.png', 'assets'), ('config.example.json', '.'), ('languages', 'languages')],
+    datas=[('assets/discord_logo.png', 'assets'), ('assets/facebook_logo.png', 'assets'), ('assets/logo_discord_blue.ico', 'assets'), ('assets/logo_blue_labs.png', 'assets'), ('assets/emoji_unicode.json', 'assets'), ('config.example.json', '.'), ('languages', 'languages')],
     hiddenimports=['PIL', 'PIL.Image', 'PIL.ImageTk', 'requests', 'pystray', 'pystray._win32', 'discord.bot', 'discord.dashboard', 'discord.token_validator', 'discord.channel_validator', 'utils.theme', 'utils.splash_screen'],
     hookspath=[],
     hooksconfig={},

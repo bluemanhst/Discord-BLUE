@@ -167,8 +167,8 @@ def check_build_files():
     # cac module noi bo (discord.*, utils.*) PyInstaller tu phat hien qua import;
     # chi can liet ke thu vien ben ngoai + module de quen mat truoc day
     for token in ["languages", "assets/logo_discord_blue.ico", "assets/discord_logo.png",
-                  "assets/facebook_logo.png", "pystray", "discord.bot",
-                  "discord.dashboard", "discord.token_validator"]:
+                  "assets/facebook_logo.png", "assets/emoji_unicode.json", "pystray",
+                  "discord.bot", "discord.dashboard", "discord.token_validator"]:
         if token not in spec:
             problems.append(f"spec thieu: {token}")
     if "Discord BLUE.spec" not in bat:
