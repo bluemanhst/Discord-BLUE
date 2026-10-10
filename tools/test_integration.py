@@ -325,6 +325,38 @@ check("unicode: uu tien custom emoji hon unicode (cung ten)",
       == "<:smile:333333333333333333>")
 check("unicode: khong phai emoji -> giu nguyen (khong lam vo text thuong)",
       resolve_emoji_shortcodes(":emoji_11: :khong_phai_emoji:", {}) == ":emoji_11: :khong_phai_emoji:")
+
+# --- 3b3b. dong bo GUI vs PREVIEW: shortcode so -> keycap (khong con so phang) ---
+check("dong bo: :two: -> keycap 2️⃣ (khong con so phang '2')",
+      resolve_emoji_shortcodes(":two:", {}) == _uni("two")
+      and resolve_emoji_shortcodes(":two:", {}) == "2️⃣")
+check("dong bo: :zero:..:nine: deu la keycap (== unicode_emoji)",
+      all(resolve_emoji_shortcodes(f":{n}:", {}) == _uni(n)
+          for n in ("zero", "one", "two", "three", "four",
+                    "five", "six", "seven", "eight", "nine")))
+check("dong bo: :keycap_ten: -> 🔟",
+      resolve_emoji_shortcodes(":keycap_ten:", {}) == "🔟")
+# Ten 1 ky tu (:a: :b: :x: :o: :m:) - truoc day bi bo qua vi regex {2,32}
+check("dong bo: ten 1 ky tu :a: :b: :x: :o: :m: convert dung",
+      resolve_emoji_shortcodes(":a: :b: :x: :o: :m:", {})
+      == "🅰️ 🅱️ ❌ ⭕ Ⓜ️")
+# Ten dai >32 ky tu - truoc day bi bo qua
+check("dong bo: ten dai (53 ky tu) convert dung",
+      resolve_emoji_shortcodes(":raised_hand_with_part_between_middle_and_ring_fingers:", {})
+      == "🖖")
+check("dong bo: ten dai khac (:face_with_open_eyes_and_hand_over_mouth:)",
+      resolve_emoji_shortcodes(":face_with_open_eyes_and_hand_over_mouth:", {}) == "🫢")
+# Ky tu Latinh mo rong trong ten (piñata)
+check("dong bo: ten co ky tu Latinh :piñata: -> 🪅",
+      resolve_emoji_shortcodes(":piñata:", {}) == "🪅")
+# Quet toan bo dataset: moi shortcode phai gui == unicode_emoji (0 lech)
+import json as _json
+_ds = _json.load(open("assets/emoji_unicode.json", encoding="utf-8"))
+_leech = [n for n in _ds if _uni(n) is not None
+          and resolve_emoji_shortcodes(":" + n + ":", {}) != _uni(n)]
+check("dong bo: QUET 2073 emoji -> 0 lech giua gui va preview",
+      len(_leech) == 0, detail=str(_leech[:10]))
+
 check("unicode: unicode_emoji() tra dung / ngoai danh sach -> None",
       _uni("smile") == "😄" and _uni("khong ton tai") is None
       and _uni("") is None)

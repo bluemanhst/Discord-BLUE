@@ -10,23 +10,16 @@ import re
 _RE_EMOJI_ID = re.compile(r"<a?:([A-Za-z0-9_]{2,32}):(\d{10,})>")
 # Emoji chỉ có tên (nhập tay): :name: — không khớp số giờ "10:30", URL "https:"
 # Lookbehind loai '<' de khong match :name: ben trong <:name:id> co san
-# Char class co them '+' va '-' (cuoi, literal) de ho tro :+1: / :-1: cua Discord
-_RE_EMOJI_NAME = re.compile(r"(?<![\w:<]):([A-Za-z0-9_+\-]{2,32}):(?![\w:])")
+# Char class: chu/so/_ + '+' '-' (+1/-1) + Latinh mo rong (piñata); do dai 1-64
+# de bat ten 1 ky tu (:a: :b: :x:) va ten dai (face_with_open_eyes...).
+_RE_EMOJI_NAME = re.compile(r"(?<![\w:<]):([A-Za-z0-9À-ÿ_+\-]{1,64}):(?![\w:])")
 _RE_CODE = re.compile(r"`([^`\n]+)`")
 _RE_BOLD = re.compile(r"\*\*([^\*\n]+)\*\*")
 _RE_STRIKE = re.compile(r"~~([^~\n]+)~~")
 _RE_UNDER = re.compile(r"__([^_\n]+)__")
 _RE_ITALIC = re.compile(r"(?<!\*)\*([^*\n]+)\*(?!\*)")
 
-# Fallback: shortcode số kiểu Discord Unicode (không cần guild emoji).
-# Nếu không tra thấy emoji trong map, các tên dưới đây tự đổi thành chữ số.
-_NUMERIC_SHORTNAMES = {
-    "zero": "0", "one": "1", "two": "2", "three": "3",
-    "four": "4", "five": "5", "six": "6", "seven": "7",
-    "eight": "8", "nine": "9", "ten": "10",
-    "keycap_ten": "10",
-}
-
+# ===== EMOJI GỐC UNICODE CỦA DISCORD (không cần guild/network) ====="
 # ===== EMOJI GỐC UNICODE CỦA DISCORD (không cần guild/network) =====
 # Bảng shortcode -> ký tự emoji thật (vd "face_holding_back_tears" -> 🥹).
 # Load lazy 1 lần/process từ assets/emoji_unicode.json (bundle trong EXE).
@@ -174,9 +167,9 @@ def resolve_emoji_shortcodes(text, emoji_map):
     Returns:
         str: chuỗi đã convert theo thứ tự ưu tiên:
             1) custom emoji có ID trong emoji_map (guild);
-            2) shortcode số (:two: -> 2);
-            3) emoji gốc Unicode của Discord (:smile: -> 😄, :+1: -> 👍);
-            4) không match gì -> giữ nguyên :name:.
+            2) emoji gốc Unicode của Discord (:smile: -> 😄, :two: -> 2️⃣, :+1: -> 👍);
+            3) không match gì -> giữ nguyên :name:.
+        (Gửi và preview dùng CHUNG nguồn unicode_emoji -> luôn đồng bộ.)
     """
     if not text:
         return str(text if text is not None else "")
@@ -188,16 +181,13 @@ def resolve_emoji_shortcodes(text, emoji_map):
         if info and info.get("id"):
             prefix = "<a:" if info.get("animated") else "<:"
             return f"{prefix}{name}:{info['id']}>"
-        # 2) Fallback: shortcode số kiểu Discord -> chữ số (không cần emoji).
-        num = _NUMERIC_SHORTNAMES.get(name.lower())
-        if num is not None:
-            return num
-        # 3) Fallback: emoji gốc Unicode của Discord -> ký tự emoji thật.
-        #    (vd :smile: -> 😄, :face_holding_back_tears: -> 🥹, :+1: -> 👍)
+        # 2) Fallback: emoji gốc Unicode của Discord -> ký tự emoji thật.
+        #    (vd :smile: -> 😄, :two: -> 2️⃣, :+1: -> 👍, :piñata: -> 🪅)
+        #    Cùng nguồn với preview nên gửi/preview luôn khớp nhau.
         uni = unicode_emoji(name)
         if uni:
             return uni
-        # 4) Không match gì -> giữ nguyên :name:
+        # 3) Không match gì -> giữ nguyên :name:
         return m.group(0)
 
     return _RE_EMOJI_NAME.sub(_sub, str(text))
